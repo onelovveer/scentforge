@@ -5,17 +5,35 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const nodemailer = require('nodemailer');
 const path = require('path');
+const fs = require('fs');
 const { db, perfumes } = require('./database');
 const { getAIResponse, getAIStatus } = require('./ai-service');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
+const PUBLIC_DIR = path.join(__dirname, 'public');
+
+const publicBaseUrl = () => {
+  const render = process.env.RENDER_EXTERNAL_URL;
+  if (render) return render.replace(/\/$/, '');
+  if (isProduction && process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
+  return `http://localhost:${PORT}`;
+};
+
+let GOOGLE_CALLBACK = process.env.GOOGLE_CALLBACK_URL || `${publicBaseUrl()}/auth/google/callback`;
+if (isProduction && /localhost|127\.0\.0\.1/i.test(GOOGLE_CALLBACK)) {
+  GOOGLE_CALLBACK = `${publicBaseUrl()}/auth/google/callback`;
+}
 
 if (isProduction) app.set('trust proxy', 1);
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(PUBLIC_DIR, { index: 'index.html' }));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+});
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
@@ -35,7 +53,6 @@ passport.deserializeUser((id, done) => {
   done(null, user || null);
 });
 
-const GOOGLE_CALLBACK = process.env.GOOGLE_CALLBACK_URL || `http://localhost:${PORT}/auth/google/callback`;
 const isGoogleConfigured = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
 if (isGoogleConfigured()) {
@@ -294,8 +311,16 @@ app.post('/api/ai/chat', async (req, res) => {
   }
 });
 
+app.use((req, res) => {
+  if (req.path.endsWith('.html')) {
+    const file = path.join(PUBLIC_DIR, req.path);
+    if (fs.existsSync(file)) return res.sendFile(file);
+  }
+  res.status(404).send('Страница не найдена. <a href="/">На главную</a>');
+});
+
 app.listen(PORT, '0.0.0.0', () => {
-  const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+  const baseUrl = publicBaseUrl();
   console.log('\n  ═══════════════════════════════════════');
   console.log('  ScentForge: ' + baseUrl);
   console.log('  ═══════════════════════════════════════\n');
