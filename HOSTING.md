@@ -8,6 +8,9 @@
 
 ### 1. GitHub — загрузить код
 
+**Способ 1 (проще):** запустите `push-github.bat` в папке проекта — скрипт создаст архив и поможет отправить код на GitHub.
+
+**Способ 2 (вручную):**
 1. Откройте [github.com/new](https://github.com/new) → имя `scentforge` → **Create repository**.
 2. Нажмите **Add file → Upload files**.
 3. Перетащите **всю папку проекта**, кроме:
@@ -24,7 +27,7 @@
    - **Build Command:** `npm install`
    - **Start Command:** `npm start`
    - **Plan:** Free
-4. **Environment** → Add Environment Variable:
+4. **Environment** → Add Environment Variable (список в файле `render-env.txt`):
 
 | Key | Value |
 |-----|--------|

@@ -1,0 +1,25 @@
+Скопируйте эти переменные в Render → ваш сервис → Environment.
+
+Обязательные:
+NODE_ENV=production
+SESSION_SECRET=любая-длинная-случайная-строка-32-символа
+GOOGLE_CLIENT_ID=из-файла-.env
+GOOGLE_CLIENT_SECRET=из-файла-.env
+GOOGLE_CALLBACK_URL=https://ВАШ-САЙТ.onrender.com/auth/google/callback
+
+Для ИИ (хотя бы один ключ):
+GEMINI_API_KEY=из-.env-или-https://aistudio.google.com/apikey
+GROQ_API_KEY=опционально
+
+Для почты (опционально):
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASS=
+ADMIN_EMAIL=ваш@gmail.com
+
+После деплоя:
+1. Скопируйте URL сайта с Render (https://scentforge-xxxx.onrender.com)
+2. Вставьте его в GOOGLE_CALLBACK_URL выше → Save → Manual Deploy
+3. Google Cloud Console → OAuth → добавьте этот URL в origins и redirect URIs
