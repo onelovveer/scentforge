@@ -1,0 +1,6 @@
+{
+  "users": [],
+  "orders": [],
+  "balance_transactions": [],
+  "nextId": { "users": 1, "orders": 1, "balance_transactions": 1 }
+}

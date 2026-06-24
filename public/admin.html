@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRM — ScentForge Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container header-inner">
+      <a href="index.html" class="logo">Scent<span>Forge</span></a>
+      <nav class="nav">
+        <a href="index.html">Каталог</a>
+        <a href="cart.html">Корзина</a>
+        <a href="profile.html">Профиль</a>
+        <a href="admin.html" class="active">CRM</a>
+      </nav>
+      <div class="header-actions">
+        <div class="user-menu" id="user-menu">
+          <a href="#" class="btn btn-outline btn-sm" data-auth-link>Войти через Google</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="page-header">
+      <h1>CRM — Управление заказами</h1>
+    </div>
+
+    <div id="admin-denied" style="display:none">
+      <div class="empty-state">
+        <div class="empty-state-icon">🔒</div>
+        <h2>Доступ запрещён</h2>
+        <p style="margin:12px 0 24px">Эта страница доступна только администратору</p>
+        <a href="index.html" class="btn btn-primary">На главную</a>
+      </div>
+    </div>
+
+    <div id="admin-content" style="display:none">
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-orders">0</div>
+          <div class="stat-label">Заказов</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-revenue">0 ₽</div>
+          <div class="stat-label">Выручка</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-users">0</div>
+          <div class="stat-label">Пользователей</div>
+        </div>
+      </div>
+
+      <h2 class="section-title" style="margin-bottom:20px">Все заказы</h2>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Дата</th>
+              <th>Клиент</th>
+              <th>Товары</th>
+              <th>Сумма</th>
+              <th>Статус</th>
+            </tr>
+          </thead>
+          <tbody id="orders-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cart.js"></script>
+  <script>
+    function statusLabel(s) {
+      const map = { completed: 'Выполнен', processing: 'В обработке', shipped: 'Отправлен', cancelled: 'Отменён' };
+      return map[s] || s;
+    }
+
+    async function loadAdmin() {
+      await initAuth();
+      if (!currentUser || !currentUser.is_admin) {
+        document.getElementById('admin-denied').style.display = 'block';
+        return;
+      }
+
+      document.getElementById('admin-content').style.display = 'block';
+
+      const statsRes = await SF.fetch('/api/admin/stats');
+      const stats = await statsRes.json();
+      document.getElementById('stat-orders').textContent = stats.totalOrders;
+      document.getElementById('stat-revenue').textContent = formatPrice(stats.totalRevenue);
+      document.getElementById('stat-users').textContent = stats.totalUsers;
+
+      const ordersRes = await SF.fetch('/api/admin/orders');
+      const orders = await ordersRes.json();
+      const tbody = document.getElementById('orders-table');
+
+      tbody.innerHTML = orders.map(o => `
+        <tr>
+          <td>#${o.id}</td>
+          <td>${new Date(o.created_at).toLocaleString('ru-RU')}</td>
+          <td>${o.user_name}<br><small style="color:var(--text-muted)">${o.user_email}</small></td>
+          <td>${o.items.map(i => `${i.name} ×${i.qty}`).join('<br>')}</td>
+          <td>${formatPrice(o.total)}</td>
+          <td>
+            <select class="status-select" data-id="${o.id}" onchange="updateStatus(this)">
+              ${['completed','processing','shipped','cancelled'].map(s =>
+                `<option value="${s}" ${o.status === s ? 'selected' : ''}>${statusLabel(s)}</option>`
+              ).join('')}
+            </select>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function updateStatus(select) {
+      const id = select.dataset.id;
+      const status = select.value;
+      try {
+        const res = await SF.fetch(`/api/admin/orders/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        if (!res.ok) throw new Error('Ошибка обновления');
+        showToast('Статус обновлён', 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadAdmin);
+  </script>
+</body>
+</html>
