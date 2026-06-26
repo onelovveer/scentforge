@@ -21,7 +21,8 @@ function now() {
 
 const db = {
   getUserById(id) {
-    return load().users.find(u => u.id === id) || null;
+    const numId = Number(id);
+    return load().users.find(u => u.id === numId || u.id === id) || null;
   },
 
   getUserByGoogleId(googleId) {
@@ -63,7 +64,8 @@ const db = {
 
   updateBalance(userId, delta) {
     const data = load();
-    const user = data.users.find(u => u.id === userId);
+    const numId = Number(userId);
+    const user = data.users.find(u => u.id === numId || u.id === userId);
     if (!user) return null;
     user.balance += delta;
     save(data);
@@ -86,7 +88,8 @@ const db = {
 
   checkoutOrder({ user_id, user_email, user_name, items, total }) {
     const data = load();
-    const user = data.users.find(u => u.id === user_id);
+    const numId = Number(user_id);
+    const user = data.users.find(u => u.id === numId || u.id === user_id);
     if (!user) return { error: 'Пользователь не найден' };
     if (user.balance < total) {
       return {
@@ -142,8 +145,9 @@ const db = {
   },
 
   getOrdersByUserId(userId) {
+    const numId = Number(userId);
     return load().orders
-      .filter(o => o.user_id === userId)
+      .filter(o => o.user_id === numId || o.user_id === userId)
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   },
 

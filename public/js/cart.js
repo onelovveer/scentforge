@@ -193,14 +193,40 @@ function renderCartPage() {
   }
 }
 
+let checkoutInProgress = false;
+
 async function initCartPage() {
   await syncCartPrices();
   renderCartPage();
   const btn = document.getElementById('checkout-btn');
-  if (btn) btn.addEventListener('click', checkout);
+  if (btn && !btn.dataset.checkoutBound) {
+    btn.dataset.checkoutBound = '1';
+    btn.addEventListener('click', checkout);
+  }
+}
+
+function finishCheckoutSuccess(data) {
+  localStorage.removeItem(CART_KEY);
+  updateCartBadge();
+  currentUser.balance = data.balance;
+  updateHeaderUI();
+  renderCartPage();
+
+  const orderId = data.order?.id;
+  const emailTo = data.email?.to;
+  if (data.email?.sent) {
+    showToast(`Заказ #${orderId} оформлен! Письмо отправлено на ${emailTo}`, 'success');
+  } else if (emailTo) {
+    showToast(`Заказ #${orderId} оформлен! Подтверждение придёт на ${emailTo}`, 'success');
+  } else {
+    showToast(`Заказ #${orderId} оформлен!`, 'success');
+  }
+
+  setTimeout(() => { window.location.href = 'profile.html'; }, 1500);
 }
 
 async function checkout() {
+  if (checkoutInProgress) return;
   if (!requireAuth()) return;
 
   const cart = getCart();
@@ -216,41 +242,43 @@ async function checkout() {
   }
 
   const btn = document.getElementById('checkout-btn');
+  if (!btn) return;
+
+  checkoutInProgress = true;
   btn.disabled = true;
   btn.textContent = 'Оформление...';
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
 
   try {
     const res = await SF.fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: cart })
+      body: JSON.stringify({ items: cart }),
+      signal: controller.signal
     });
 
     let data;
     try {
       data = await res.json();
     } catch {
-      throw new Error('Ошибка сервера. Попробуйте позже.');
+      throw new Error('Ошибка сервера. Проверьте профиль — заказ мог быть оформлен.');
     }
 
     if (!res.ok) throw new Error(data.error || 'Не удалось оформить заказ');
+    if (!data.order?.id) throw new Error('Некорректный ответ сервера');
 
-    localStorage.removeItem(CART_KEY);
-    updateCartBadge();
-    currentUser.balance = data.balance;
-    updateHeaderUI();
-
-    if (data.email?.sent) {
-      showToast(`Заказ #${data.order.id} оформлен! Письмо отправлено на ${data.email.to}`, 'success');
-    } else if (data.email?.to) {
-      showToast(`Заказ #${data.order.id} оформлен! Подтверждение будет на ${data.email.to}`, 'success');
-    } else {
-      showToast(`Заказ #${data.order.id} оформлен!`, 'success');
-    }
-    setTimeout(() => window.location.href = '/profile.html', 1500);
+    finishCheckoutSuccess(data);
   } catch (err) {
-    showToast(err.message, 'error');
+    const message = err.name === 'AbortError'
+      ? 'Сервер долго не отвечает. Проверьте профиль — заказ мог быть оформлен.'
+      : (err.message || 'Не удалось оформить заказ');
+    showToast(message, 'error');
     updateCheckoutState(getCartTotal());
+  } finally {
+    clearTimeout(timeoutId);
+    checkoutInProgress = false;
   }
 }
 

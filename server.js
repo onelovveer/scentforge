@@ -105,6 +105,9 @@ const mailTransporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: smtpPort,
   secure: process.env.SMTP_SECURE === 'true' || smtpPort === 465,
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
   auth: process.env.SMTP_USER ? {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS
@@ -195,14 +198,16 @@ app.get('/auth/logout', (req, res) => {
 
 app.get('/api/user', (req, res) => {
   if (!req.user) return res.json({ user: null });
+  const user = db.getUserById(req.user.id);
+  if (!user) return res.json({ user: null });
   res.json({
     user: {
-      id: req.user.id,
-      name: req.user.name,
-      email: req.user.email,
-      avatar: req.user.avatar,
-      balance: req.user.balance,
-      is_admin: !!req.user.is_admin
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+      balance: user.balance,
+      is_admin: !!user.is_admin
     }
   });
 });
@@ -223,6 +228,7 @@ app.post('/api/balance/topup', requireAuth, (req, res) => {
   db.addBalanceTransaction(req.user.id, amount, 'topup');
 
   const user = db.getUserById(req.user.id);
+  if (req.user) req.user.balance = user.balance;
   res.json({ balance: user.balance, message: `Баланс пополнен на ${amount.toLocaleString('ru-RU')} ₽` });
 });
 
@@ -267,7 +273,7 @@ function validateOrderItems(rawItems) {
 }
 
 // Checkout
-app.post('/api/orders', requireAuth, async (req, res) => {
+app.post('/api/orders', requireAuth, (req, res) => {
   const validated = validateOrderItems(req.body.items);
   if (validated.error) {
     return res.status(400).json({ error: validated.error });
@@ -299,12 +305,16 @@ app.post('/api/orders', requireAuth, async (req, res) => {
   }
 
   const { order, balance } = result;
-  const emailResult = await sendOrderEmail(order, customerEmail, user.name);
+  if (req.user) req.user.balance = balance;
 
   res.json({
     order: { id: order.id, total: order.total, items, created_at: order.created_at },
     balance,
-    email: emailResult
+    email: { sent: false, to: customerEmail, pending: !!process.env.SMTP_USER }
+  });
+
+  sendOrderEmail(order, customerEmail, user.name).catch(err => {
+    console.error('[Email] Фоновая отправка заказа #' + order.id + ':', err.message);
   });
 });
 
