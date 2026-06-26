@@ -226,44 +226,84 @@ app.post('/api/balance/topup', requireAuth, (req, res) => {
   res.json({ balance: user.balance, message: `Баланс пополнен на ${amount.toLocaleString('ru-RU')} ₽` });
 });
 
-// Checkout
-app.post('/api/orders', requireAuth, async (req, res) => {
-  const { items } = req.body;
-  if (!items || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: 'Корзина пуста' });
+function validateOrderItems(rawItems) {
+  if (!rawItems || !Array.isArray(rawItems) || rawItems.length === 0) {
+    return { error: 'Корзина пуста' };
   }
 
-  const total = items.reduce((sum, i) => sum + i.price * i.qty, 0);
-  const user = db.getUserById(req.user.id);
-  const customerEmail = (user.email || '').trim().toLowerCase();
+  const merged = new Map();
+  for (const item of rawItems) {
+    const id = parseInt(item.id, 10);
+    const qty = parseInt(item.qty, 10);
+    if (!id || !qty || qty < 1 || qty > 99) {
+      return { error: 'Некорректное количество товара' };
+    }
 
+    const product = perfumes.find(p => p.id === id);
+    if (!product) {
+      return { error: `Товар «${item.name || id}» больше не доступен` };
+    }
+
+    if (merged.has(id)) {
+      merged.get(id).qty += qty;
+      if (merged.get(id).qty > 99) {
+        return { error: 'Максимум 99 шт. одного товара в заказе' };
+      }
+    } else {
+      merged.set(id, {
+        id: product.id,
+        name: product.name,
+        brand: product.brand,
+        price: product.price,
+        image: product.image,
+        qty
+      });
+    }
+  }
+
+  const items = Array.from(merged.values());
+  const total = items.reduce((sum, i) => sum + i.price * i.qty, 0);
+  return { items, total };
+}
+
+// Checkout
+app.post('/api/orders', requireAuth, async (req, res) => {
+  const validated = validateOrderItems(req.body.items);
+  if (validated.error) {
+    return res.status(400).json({ error: validated.error });
+  }
+
+  const { items, total } = validated;
+  const user = db.getUserById(req.user.id);
+  if (!user) {
+    return res.status(400).json({ error: 'Пользователь не найден' });
+  }
+
+  const customerEmail = (user.email || '').trim().toLowerCase();
   if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
     return res.status(400).json({
       error: 'Не найдена почта Google в профиле. Выйдите из аккаунта и войдите снова через Google.'
     });
   }
 
-  if (user.balance < total) {
-    return res.status(400).json({
-      error: `Недостаточно средств. Нужно ${total.toLocaleString('ru-RU')} ₽, на балансе ${user.balance.toLocaleString('ru-RU')} ₽`
-    });
-  }
-
-  db.updateBalance(req.user.id, -total);
-
-  const order = db.createOrder({
+  const result = db.checkoutOrder({
     user_id: req.user.id,
     user_email: customerEmail,
     user_name: user.name,
     items,
     total
   });
+
+  if (result.error) {
+    return res.status(400).json({ error: result.error, balance: result.balance });
+  }
+
+  const { order, balance } = result;
   const emailResult = await sendOrderEmail(order, customerEmail, user.name);
 
-  const updatedUser = db.getUserById(req.user.id);
   res.json({
     order: { id: order.id, total: order.total, items, created_at: order.created_at },
-    balance: updatedUser.balance,
+    balance,
     email: emailResult
   });
 });
@@ -290,6 +330,7 @@ app.patch('/api/admin/orders/:id/status', requireAdmin, (req, res) => {
   if (!valid.includes(status)) return res.status(400).json({ error: 'Неверный статус' });
 
   const order = db.updateOrderStatus(req.params.id, status);
+  if (!order) return res.status(404).json({ error: 'Заказ не найден' });
   res.json({ ...order, items: JSON.parse(order.items) });
 });
 

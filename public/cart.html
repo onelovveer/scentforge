@@ -37,14 +37,16 @@
       <h1>Корзина</h1>
     </div>
 
-    <div id="cart-content">
+    <div id="cart-content" style="display:none">
       <div class="cart-layout">
         <div class="cart-items" id="cart-items"></div>
         <div class="cart-summary" id="cart-summary">
           <h3>Итого</h3>
           <div class="summary-row"><span>Товаров</span><span id="summary-count">0</span></div>
+          <div class="summary-row"><span>Ваш баланс</span><span id="summary-balance">0 ₽</span></div>
           <div class="summary-total"><span>К оплате</span><span id="summary-total">0 ₽</span></div>
-          <button class="btn btn-primary" style="width:100%" id="checkout-btn">Оплатить с баланса</button>
+          <p id="balance-warning" style="display:none;font-size:0.85rem;color:#e74c3c;margin:12px 0 0;text-align:center"></p>
+          <button class="btn btn-primary" style="width:100%;margin-top:12px" id="checkout-btn">Оплатить с баланса</button>
           <p id="order-email-hint" style="font-size:0.8rem;color:var(--text-muted);margin-top:12px;text-align:center;display:none">
             Подтверждение заказа придёт на: <strong id="order-email"></strong>
           </p>
@@ -70,10 +72,7 @@
   <script src="js/cart.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      initAuth().then(() => {
-        renderCartPage();
-        document.getElementById('checkout-btn').addEventListener('click', checkout);
-      });
+      initAuth().then(() => initCartPage());
     });
   </script>
 </body>

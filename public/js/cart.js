@@ -29,6 +29,10 @@ function addToCart(product) {
   const cart = getCart();
   const existing = cart.find(i => i.id === product.id);
   if (existing) {
+    if (existing.qty >= 99) {
+      showToast('Максимум 99 шт. одного товара', 'error');
+      return;
+    }
     existing.qty++;
   } else {
     cart.push({ id: product.id, name: product.name, brand: product.brand, price: product.price, image: product.image, qty: 1 });
@@ -52,12 +56,87 @@ function changeQty(id, delta) {
     removeFromCart(id);
     return;
   }
+  if (item.qty > 99) {
+    item.qty = 99;
+    showToast('Максимум 99 шт. одного товара', 'error');
+  }
   saveCart(cart);
   renderCartPage();
 }
 
 function getCartTotal() {
   return getCart().reduce((s, i) => s + i.price * i.qty, 0);
+}
+
+async function syncCartPrices() {
+  if (!SF.isServer) return false;
+
+  try {
+    const res = await SF.fetch('/api/products');
+    if (!res.ok) return false;
+    const products = await res.json();
+    const cart = getCart();
+    let changed = false;
+    let removed = false;
+
+    const validCart = cart.filter(item => {
+      const product = products.find(p => p.id === item.id);
+      if (!product) {
+        removed = true;
+        return false;
+      }
+      if (item.price !== product.price) {
+        item.price = product.price;
+        changed = true;
+      }
+      item.name = product.name;
+      item.brand = product.brand;
+      item.image = product.image;
+      return true;
+    });
+
+    if (removed || validCart.length !== cart.length) {
+      saveCart(validCart);
+      showToast('Корзина обновлена: недоступные товары удалены', 'error');
+      return true;
+    }
+    if (changed) {
+      saveCart(validCart);
+      showToast('Цены в корзине обновлены', 'success');
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function updateCheckoutState(total) {
+  const btn = document.getElementById('checkout-btn');
+  const warningEl = document.getElementById('balance-warning');
+  const balanceEl = document.getElementById('summary-balance');
+  if (!btn) return;
+
+  const balance = currentUser?.balance ?? 0;
+  const canPay = currentUser && balance >= total;
+
+  if (balanceEl) {
+    balanceEl.textContent = formatPrice(balance);
+  }
+
+  if (warningEl) {
+    if (currentUser && total > balance) {
+      const shortage = total - balance;
+      warningEl.style.display = 'block';
+      warningEl.innerHTML = `Недостаточно средств. Не хватает <strong>${formatPrice(shortage)}</strong>. <a href="profile.html">Пополнить баланс</a>`;
+    } else {
+      warningEl.style.display = 'none';
+      warningEl.innerHTML = '';
+    }
+  }
+
+  btn.disabled = !canPay || total === 0;
+  btn.textContent = canPay ? 'Оплатить с баланса' : 'Недостаточно средств';
 }
 
 function renderCartPage() {
@@ -100,6 +179,7 @@ function renderCartPage() {
   const count = cart.reduce((s, i) => s + i.qty, 0);
   document.getElementById('summary-count').textContent = count;
   document.getElementById('summary-total').textContent = formatPrice(total);
+  updateCheckoutState(total);
 
   const emailHint = document.getElementById('order-email-hint');
   const emailEl = document.getElementById('order-email');
@@ -113,12 +193,25 @@ function renderCartPage() {
   }
 }
 
+async function initCartPage() {
+  await syncCartPrices();
+  renderCartPage();
+  const btn = document.getElementById('checkout-btn');
+  if (btn) btn.addEventListener('click', checkout);
+}
+
 async function checkout() {
   if (!requireAuth()) return;
 
   const cart = getCart();
   if (cart.length === 0) {
     showToast('Корзина пуста', 'error');
+    return;
+  }
+
+  const total = getCartTotal();
+  if (currentUser.balance < total) {
+    showToast(`Недостаточно средств. Нужно ${formatPrice(total)}, на балансе ${formatPrice(currentUser.balance)}`, 'error');
     return;
   }
 
@@ -132,8 +225,15 @@ async function checkout() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items: cart })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      throw new Error('Ошибка сервера. Попробуйте позже.');
+    }
+
+    if (!res.ok) throw new Error(data.error || 'Не удалось оформить заказ');
 
     localStorage.removeItem(CART_KEY);
     updateCartBadge();
@@ -150,8 +250,7 @@ async function checkout() {
     setTimeout(() => window.location.href = '/profile.html', 1500);
   } catch (err) {
     showToast(err.message, 'error');
-    btn.disabled = false;
-    btn.textContent = 'Оплатить с баланса';
+    updateCheckoutState(getCartTotal());
   }
 }
 

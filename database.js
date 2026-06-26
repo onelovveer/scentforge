@@ -70,16 +70,54 @@ const db = {
     return user;
   },
 
-  addBalanceTransaction(userId, amount, type) {
+  addBalanceTransaction(userId, amount, type, orderId = null) {
     const data = load();
-    data.balance_transactions.push({
+    const tx = {
       id: data.nextId.balance_transactions++,
       user_id: userId,
       amount,
       type,
       created_at: now()
+    };
+    if (orderId != null) tx.order_id = orderId;
+    data.balance_transactions.push(tx);
+    save(data);
+  },
+
+  checkoutOrder({ user_id, user_email, user_name, items, total }) {
+    const data = load();
+    const user = data.users.find(u => u.id === user_id);
+    if (!user) return { error: 'Пользователь не найден' };
+    if (user.balance < total) {
+      return {
+        error: `Недостаточно средств. Нужно ${total.toLocaleString('ru-RU')} ₽, на балансе ${user.balance.toLocaleString('ru-RU')} ₽`,
+        balance: user.balance
+      };
+    }
+
+    user.balance -= total;
+
+    const order = {
+      id: data.nextId.orders++,
+      user_id,
+      user_email,
+      user_name,
+      items: JSON.stringify(items),
+      total,
+      status: 'completed',
+      created_at: now()
+    };
+    data.orders.push(order);
+    data.balance_transactions.push({
+      id: data.nextId.balance_transactions++,
+      user_id,
+      amount: -total,
+      type: 'purchase',
+      order_id: order.id,
+      created_at: now()
     });
     save(data);
+    return { order, balance: user.balance };
   },
 
   createOrder({ user_id, user_email, user_name, items, total }) {
@@ -126,7 +164,25 @@ const db = {
     const data = load();
     const order = data.orders.find(o => o.id === parseInt(id));
     if (!order) return null;
+
+    const prevStatus = order.status;
     order.status = status;
+
+    if (status === 'cancelled' && prevStatus !== 'cancelled') {
+      const user = data.users.find(u => u.id === order.user_id);
+      if (user) {
+        user.balance += order.total;
+        data.balance_transactions.push({
+          id: data.nextId.balance_transactions++,
+          user_id: user.id,
+          amount: order.total,
+          type: 'refund',
+          order_id: order.id,
+          created_at: now()
+        });
+      }
+    }
+
     save(data);
     return order;
   }
