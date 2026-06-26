@@ -5,16 +5,33 @@ function getAmoBaseUrl() {
   return `https://${subdomain}.${domain}`;
 }
 
+function getCRMUrl() {
+  const explicit = (process.env.CRM_URL || '').trim();
+  const base = getAmoBaseUrl();
+
+  if (explicit && !isGenericAmoHomepage(explicit)) {
+    return explicit;
+  }
+
+  if (!base) return null;
+
+  const pipelineId = process.env.AMOCRM_PIPELINE_ID
+    ? Number(process.env.AMOCRM_PIPELINE_ID)
+    : null;
+  if (pipelineId) {
+    return `${base}/leads/pipeline/${pipelineId}/`;
+  }
+  return `${base}/leads/list/`;
+}
+
 function getCRMProvider() {
   if ((process.env.CRM_PROVIDER || '').trim() === 'amocrm') return 'amocrm';
   if (process.env.AMOCRM_SUBDOMAIN && process.env.AMOCRM_ACCESS_TOKEN) return 'amocrm';
   return process.env.CRM_PROVIDER || 'none';
 }
 
-function getCRMUrl() {
-  const explicit = (process.env.CRM_URL || '').trim();
-  if (explicit) return explicit;
-  return getAmoBaseUrl();
+function isGenericAmoHomepage(url) {
+  return /^(https?:\/\/)?(www\.)?amocrm\.ru\/?$/i.test(url);
 }
 
 function isCRMConfigured() {
@@ -38,8 +55,8 @@ function bootstrapCRM() {
   if (!process.env.CRM_PROVIDER && process.env.AMOCRM_SUBDOMAIN) {
     process.env.CRM_PROVIDER = 'amocrm';
   }
-  if (!process.env.CRM_URL && getAmoBaseUrl()) {
-    process.env.CRM_URL = getAmoBaseUrl();
+  if (!process.env.CRM_URL && getCRMUrl()) {
+    process.env.CRM_URL = getCRMUrl();
   }
 }
 
