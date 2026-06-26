@@ -153,9 +153,57 @@ async function findOrCreateContact(customer) {
   return created;
 }
 
-async function createLead(order, contactId, pipeline) {
+function formatPrice(n) {
+  return Number(n).toLocaleString('ru-RU') + ' ₽';
+}
+
+function buildOrderDetails(order, items) {
+  const totalQty = items.reduce((sum, i) => sum + i.qty, 0);
+  const positions = items.length;
+
+  const lines = items.map((item, index) => {
+    const lineTotal = item.price * item.qty;
+    return [
+      `${index + 1}. ${item.name} — ${item.brand}`,
+      `   Количество: ${item.qty} шт.`,
+      `   Цена: ${formatPrice(item.price)} / шт.`,
+      `   Сумма: ${formatPrice(lineTotal)}`
+    ].join('\n');
+  });
+
+  const itemsShort = items.map(i => `${i.name} ×${i.qty}`).join(', ');
+  let leadName = `Заказ #${order.id} · ${formatPrice(order.total)} · ${itemsShort}`;
+  if (leadName.length > 250) {
+    const preview = items.slice(0, 2).map(i => `${i.name} ×${i.qty}`).join(', ');
+    const suffix = items.length > 2 ? ` +${items.length - 2}` : '';
+    leadName = `Заказ #${order.id} · ${formatPrice(order.total)} · ${preview}${suffix}`;
+  }
+
+  const note = [
+    `ЗАКАЗ SCENTFORGE #${order.id}`,
+    '═'.repeat(32),
+    `Дата: ${new Date(order.created_at).toLocaleString('ru-RU')}`,
+    `Клиент: ${order.user_name}`,
+    `Email: ${order.user_email}`,
+    '',
+    'СОСТАВ ЗАКАЗА:',
+    '─'.repeat(32),
+    ...lines,
+    '─'.repeat(32),
+    `Позиций в заказе: ${positions}`,
+    `Всего товаров: ${totalQty} шт.`,
+    `СУММА ЗАКАЗА: ${formatPrice(order.total)}`,
+    '',
+    'Источник: ScentForge'
+  ].join('\n');
+
+  return { leadName, note, totalQty, positions };
+}
+
+async function createLead(order, contactId, pipeline, items) {
+  const { leadName } = buildOrderDetails(order, items);
   const payload = {
-    name: `Заказ #${order.id} — ScentForge`,
+    name: leadName,
     price: order.total,
     pipeline_id: pipeline.pipeline_id,
     _embedded: {
@@ -177,22 +225,6 @@ async function createLead(order, contactId, pipeline) {
   }
 }
 
-function buildOrderNote(order, items) {
-  const lines = items.map(i =>
-    `• ${i.name} (${i.brand}) × ${i.qty} — ${(i.price * i.qty).toLocaleString('ru-RU')} ₽`
-  );
-  return [
-    `Заказ ScentForge #${order.id}`,
-    `Дата: ${new Date(order.created_at).toLocaleString('ru-RU')}`,
-    `Клиент: ${order.user_name} (${order.user_email})`,
-    '',
-    'Состав:',
-    ...lines,
-    '',
-    `Итого: ${order.total.toLocaleString('ru-RU')} ₽`
-  ].join('\n');
-}
-
 async function sendAmoCRM(order, customer) {
   if (!isCRMConfigured()) {
     return { sent: false, reason: 'amocrm_not_configured' };
@@ -201,7 +233,8 @@ async function sendAmoCRM(order, customer) {
   const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
   const pipeline = await getPipelineMeta();
   const contact = await findOrCreateContact(customer);
-  const leadData = await createLead(order, contact.id, pipeline);
+  const { note } = buildOrderDetails(order, items);
+  const leadData = await createLead(order, contact.id, pipeline, items);
 
   const leadId = leadData?._embedded?.leads?.[0]?.id;
   if (!leadId) throw new Error('amoCRM: сделка не создана — пустой ответ API');
@@ -210,7 +243,7 @@ async function sendAmoCRM(order, customer) {
     method: 'POST',
     body: [{
       note_type: 'common',
-      params: { text: buildOrderNote(order, items) }
+      params: { text: note }
     }]
   });
 
