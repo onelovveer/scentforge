@@ -97,11 +97,18 @@ async function getPipelineMeta() {
     ? pipelines.find(p => p.id === envPipeline) || pipelines[0]
     : pipelines[0];
 
-  const statuses = pipeline._embedded?.statuses || [];
-  const status = envStatus
-    ? statuses.find(s => s.id === envStatus) || statuses[0]
-    : statuses[0];
+  let statuses = pipeline._embedded?.statuses || [];
+  if (!statuses.length) {
+    const statusData = await amocrmRequest(`/leads/pipelines/${pipeline.id}/statuses`);
+    statuses = statusData?._embedded?.statuses || [];
+  }
 
+  const openStatuses = statuses
+    .filter(s => s.type === 0)
+    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+
+  let status = envStatus ? statuses.find(s => s.id === envStatus) : null;
+  if (!status) status = openStatuses[0] || statuses[0];
   if (!status) throw new Error('amoCRM: не найден этап воронки');
 
   cachedPipelineMeta = {
@@ -111,6 +118,63 @@ async function getPipelineMeta() {
     status_name: status.name
   };
   return cachedPipelineMeta;
+}
+
+async function findContactByEmail(email) {
+  const data = await amocrmRequest(`/contacts?query=${encodeURIComponent(email)}&limit=10`);
+  const contacts = data?._embedded?.contacts || [];
+  const normalized = email.toLowerCase();
+  return contacts.find(c => {
+    const field = (c.custom_fields_values || []).find(f => f.field_code === 'EMAIL');
+    const values = field?.values || [];
+    return values.some(v => String(v.value || '').toLowerCase() === normalized);
+  }) || null;
+}
+
+async function createContact(customer) {
+  const data = await amocrmRequest('/contacts', {
+    method: 'POST',
+    body: [{
+      name: customer.name || customer.email,
+      custom_fields_values: [{
+        field_code: 'EMAIL',
+        values: [{ value: customer.email, enum_code: 'WORK' }]
+      }]
+    }]
+  });
+  return data?._embedded?.contacts?.[0] || null;
+}
+
+async function findOrCreateContact(customer) {
+  const existing = await findContactByEmail(customer.email);
+  if (existing?.id) return existing;
+  const created = await createContact(customer);
+  if (!created?.id) throw new Error('amoCRM: не удалось создать контакт');
+  return created;
+}
+
+async function createLead(order, contactId, pipeline) {
+  const payload = {
+    name: `Заказ #${order.id} — ScentForge`,
+    price: order.total,
+    pipeline_id: pipeline.pipeline_id,
+    _embedded: {
+      contacts: [{ id: contactId }]
+    }
+  };
+
+  try {
+    return await amocrmRequest('/leads', {
+      method: 'POST',
+      body: [{ ...payload, status_id: pipeline.status_id }]
+    });
+  } catch (err) {
+    if (!String(err.message).includes('status')) throw err;
+    return amocrmRequest('/leads', {
+      method: 'POST',
+      body: [payload]
+    });
+  }
 }
 
 function buildOrderNote(order, items) {
@@ -129,13 +193,6 @@ function buildOrderNote(order, items) {
   ].join('\n');
 }
 
-function splitCustomerName(name) {
-  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return { first_name: 'Клиент', last_name: '' };
-  if (parts.length === 1) return { first_name: parts[0], last_name: '' };
-  return { first_name: parts[0], last_name: parts.slice(1).join(' ') };
-}
-
 async function sendAmoCRM(order, customer) {
   if (!isCRMConfigured()) {
     return { sent: false, reason: 'amocrm_not_configured' };
@@ -143,32 +200,10 @@ async function sendAmoCRM(order, customer) {
 
   const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
   const pipeline = await getPipelineMeta();
-  const { first_name, last_name } = splitCustomerName(customer.name);
+  const contact = await findOrCreateContact(customer);
+  const leadData = await createLead(order, contact.id, pipeline);
 
-  const lead = {
-    name: `Заказ #${order.id} — ScentForge`,
-    price: order.total,
-    pipeline_id: pipeline.pipeline_id,
-    status_id: pipeline.status_id,
-    _embedded: {
-      contacts: [{
-        first_name,
-        last_name: last_name || undefined,
-        custom_fields_values: [{
-          field_code: 'EMAIL',
-          values: [{ value: customer.email, enum_code: 'WORK' }]
-        }]
-      }]
-    }
-  };
-
-  const leadData = await amocrmRequest('/leads', {
-    method: 'POST',
-    body: [lead]
-  });
-
-  const created = leadData?._embedded?.leads?.[0];
-  const leadId = created?.id;
+  const leadId = leadData?._embedded?.leads?.[0]?.id;
   if (!leadId) throw new Error('amoCRM: сделка не создана — пустой ответ API');
 
   await amocrmRequest(`/leads/${leadId}/notes`, {
