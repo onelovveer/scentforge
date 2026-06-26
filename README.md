@@ -56,27 +56,15 @@ ADMIN_EMAIL=admin@example.com
 
 ## Внешняя CRM
 
-Заказы автоматически отправляются во внешнюю систему при оформлении.
+Работает **из коробки** — настраивать Zapier или webhook не нужно.
 
-**Webhook** (Zapier, Make, n8n, Bitrix24 и др.):
+- Отдельная панель: `/crm/`
+- Админ магазина нажимает **«CRM»** в меню → автоматический вход
+- Заказы синхронизируются через внутренний webhook при оформлении
 
-```
-CRM_URL=https://your-crm.example.com
-CRM_WEBHOOK_URL=https://hooks.zapier.com/...
-CRM_WEBHOOK_SECRET=optional-bearer-token
-```
+Опционально: `CRM_ACCESS_TOKEN` в `.env` для своего ключа. Иначе ключ генерируется из `SESSION_SECRET`.
 
-**amoCRM**:
-
-```
-CRM_PROVIDER=amocrm
-CRM_URL=https://yourcompany.amocrm.ru
-AMOCRM_SUBDOMAIN=yourcompany
-AMOCRM_ACCESS_TOKEN=your-token
-AMOCRM_PIPELINE_ID=123456
-```
-
-Ссылка «CRM» в меню сайта (только для администратора) ведёт на `CRM_URL`.
+Для amoCRM вместо встроенной панели: `CRM_PROVIDER=amocrm`, `AMOCRM_SUBDOMAIN`, `AMOCRM_ACCESS_TOKEN`.
 
 ## Структура проекта
 

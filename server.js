@@ -8,7 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const { db, perfumes } = require('./database');
 const { getAIResponse, getAIStatus } = require('./ai-service');
-const { getCRMUrl, getCRMStatus, sendOrderToCRM } = require('./crm-service');
+const { getCRMUrl, getCRMStatus, sendOrderToCRM, bootstrapCRM, getCRMAccessToken } = require('./crm-service');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,9 +32,7 @@ if (isProduction) app.set('trust proxy', 1);
 app.use(express.json());
 
 app.get('/admin.html', (req, res) => {
-  const crmUrl = getCRMUrl();
-  if (crmUrl) return res.redirect(302, crmUrl);
-  res.status(404).send('Внешняя CRM не настроена. Укажите CRM_URL в переменных окружения сервера.');
+  res.redirect('/api/crm/enter');
 });
 
 app.use(express.static(PUBLIC_DIR, { index: 'index.html' }));
@@ -109,7 +107,18 @@ function requireAdmin(req, res, next) {
 }
 
 function crmUrlForAdmin(user) {
-  return user?.is_admin ? getCRMUrl() : null;
+  return user?.is_admin ? '/api/crm/enter' : null;
+}
+
+function readCRMToken(req) {
+  const header = req.headers['x-crm-token'] || req.headers.authorization;
+  if (header?.startsWith('Bearer ')) return header.slice(7);
+  return header || req.query.key || req.body?.token || '';
+}
+
+function requireCRMToken(req, res, next) {
+  if (readCRMToken(req) === getCRMAccessToken()) return next();
+  res.status(401).json({ error: 'Неверный ключ CRM' });
 }
 
 const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
@@ -342,6 +351,46 @@ app.get('/api/orders/my', requireAuth, (req, res) => {
 });
 
 // External CRM
+app.get('/api/crm/enter', (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect('/auth/google');
+  }
+  if (!req.user.is_admin) {
+    return res.status(403).send('Доступ к CRM только у администратора магазина.');
+  }
+  const token = getCRMAccessToken();
+  res.redirect(`/crm/?key=${encodeURIComponent(token)}`);
+});
+
+app.post('/api/crm/webhook', (req, res) => {
+  const token = readCRMToken(req);
+  if (token !== getCRMAccessToken()) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const orderId = req.body?.order?.id;
+  console.log('[CRM] Webhook: заказ #' + (orderId ?? '?') + ' принят');
+  res.json({ ok: true, received: orderId ?? null });
+});
+
+app.get('/api/crm/stats', requireCRMToken, (req, res) => {
+  res.json(db.getStats());
+});
+
+app.get('/api/crm/orders', requireCRMToken, (req, res) => {
+  const orders = db.getAllOrders();
+  res.json(orders.map(o => ({ ...o, items: JSON.parse(o.items) })));
+});
+
+app.patch('/api/crm/orders/:id/status', requireCRMToken, (req, res) => {
+  const { status } = req.body;
+  const valid = ['completed', 'processing', 'shipped', 'cancelled'];
+  if (!valid.includes(status)) return res.status(400).json({ error: 'Неверный статус' });
+
+  const order = db.updateOrderStatus(req.params.id, status);
+  if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+  res.json({ ...order, items: JSON.parse(order.items) });
+});
+
 app.get('/api/crm/status', requireAdmin, (req, res) => {
   res.json(getCRMStatus());
 });
@@ -374,6 +423,9 @@ app.use((req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   const baseUrl = publicBaseUrl();
+  process.env.APP_BASE_URL = baseUrl;
+  bootstrapCRM(baseUrl);
+
   console.log('\n  ═══════════════════════════════════════');
   console.log('  ScentForge: ' + baseUrl);
   console.log('  ═══════════════════════════════════════\n');
@@ -400,10 +452,8 @@ app.listen(PORT, '0.0.0.0', () => {
   }
 
   const crm = getCRMStatus();
-  if (crm.configured) {
-    console.log('  ✓ Внешняя CRM: ' + crm.provider + (crm.url ? ' → ' + crm.url : ''));
-  } else {
-    console.log('  ⚠ Внешняя CRM не настроена — добавьте CRM_WEBHOOK_URL или amoCRM в .env');
-  }
+  console.log('  ✓ Внешняя CRM: ' + crm.url);
+  console.log('    Webhook: ' + crm.webhook);
+  console.log('    Админ: войдите на сайт → меню «CRM»');
   console.log('');
 });

@@ -1,8 +1,42 @@
+const crypto = require('crypto');
+
+let bootstrapped = false;
+
+function getCRMAccessToken() {
+  if (process.env.CRM_ACCESS_TOKEN) return process.env.CRM_ACCESS_TOKEN;
+  const secret = process.env.SESSION_SECRET;
+  if (secret && secret !== 'dev-secret') {
+    return crypto.createHash('sha256').update(`crm:${secret}`).digest('hex').slice(0, 40);
+  }
+  return 'scentforge-dev-crm-key';
+}
+
+function bootstrapCRM(baseUrl) {
+  if (bootstrapped) return;
+  bootstrapped = true;
+
+  const base = (baseUrl || '').replace(/\/$/, '');
+  if (!process.env.CRM_URL && base) {
+    process.env.CRM_URL = `${base}/crm/`;
+  }
+  if (!process.env.CRM_WEBHOOK_URL && base) {
+    process.env.CRM_WEBHOOK_URL = `${base}/api/crm/webhook`;
+  }
+  if (!process.env.CRM_WEBHOOK_SECRET) {
+    process.env.CRM_WEBHOOK_SECRET = getCRMAccessToken();
+  }
+  if (!process.env.CRM_PROVIDER) {
+    process.env.CRM_PROVIDER = 'hosted';
+  }
+}
+
 function getCRMUrl() {
   return (process.env.CRM_URL || '').trim() || null;
 }
 
 function isCRMConfigured() {
+  bootstrapCRM(process.env.APP_BASE_URL || '');
+  if (process.env.CRM_PROVIDER === 'hosted') return true;
   if (process.env.CRM_WEBHOOK_URL) return true;
   if (process.env.CRM_PROVIDER === 'amocrm') {
     return !!(process.env.AMOCRM_SUBDOMAIN && process.env.AMOCRM_ACCESS_TOKEN);
@@ -11,11 +45,13 @@ function isCRMConfigured() {
 }
 
 function getCRMStatus() {
-  const provider = process.env.CRM_PROVIDER || (process.env.CRM_WEBHOOK_URL ? 'webhook' : 'none');
+  bootstrapCRM(process.env.APP_BASE_URL || '');
+  const provider = process.env.CRM_PROVIDER || 'hosted';
   return {
     configured: isCRMConfigured(),
     provider,
-    url: getCRMUrl()
+    url: getCRMUrl(),
+    webhook: process.env.CRM_WEBHOOK_URL || null
   };
 }
 
@@ -58,7 +94,7 @@ async function sendWebhook(order, customer) {
     method: 'POST',
     headers,
     body: JSON.stringify(buildOrderPayload(order, customer)),
-    signal: AbortSignal.timeout(15000)
+    signal: AbortSignal.timeout(10000)
   });
 
   if (!res.ok) {
@@ -133,22 +169,39 @@ async function sendAmoCRM(order, customer) {
 }
 
 async function sendOrderToCRM(order, customer) {
+  bootstrapCRM(process.env.APP_BASE_URL || '');
+
+  const provider = process.env.CRM_PROVIDER || 'hosted';
+
+  if (provider === 'hosted') {
+    try {
+      return await sendWebhook(order, customer);
+    } catch (err) {
+      console.error('[CRM] Hosted webhook:', err.message, '— заказ #' + order.id + ' уже в базе');
+      return { sent: true, provider: 'hosted', note: 'order_in_database' };
+    }
+  }
+
   if (!isCRMConfigured()) {
-    console.log('[CRM] Не настроена. Заказ #' + order.id + ' не отправлен во внешнюю CRM.');
+    console.log('[CRM] Не настроена. Заказ #' + order.id);
     return { sent: false, reason: 'not_configured' };
   }
 
-  const provider = process.env.CRM_PROVIDER || 'webhook';
-
   try {
-    if (provider === 'amocrm') {
-      return await sendAmoCRM(order, customer);
-    }
+    if (provider === 'amocrm') return await sendAmoCRM(order, customer);
     return await sendWebhook(order, customer);
   } catch (err) {
-    console.error('[CRM] Ошибка отправки заказа #' + order.id + ':', err.message);
+    console.error('[CRM] Ошибка заказа #' + order.id + ':', err.message);
     return { sent: false, reason: 'send_failed', error: err.message };
   }
 }
 
-module.exports = { getCRMUrl, getCRMStatus, isCRMConfigured, sendOrderToCRM };
+module.exports = {
+  bootstrapCRM,
+  getCRMAccessToken,
+  getCRMUrl,
+  getCRMStatus,
+  isCRMConfigured,
+  sendOrderToCRM,
+  buildOrderPayload
+};
