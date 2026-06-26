@@ -83,12 +83,9 @@ async function amocrmRequest(path, { method = 'GET', body } = {}) {
   return text ? JSON.parse(text) : null;
 }
 
-async function getPipelineMeta() {
-  if (cachedPipelineMeta) return cachedPipelineMeta;
+const SCENTFORGE_PIPELINE_NAME = 'ScentForge';
 
-  const envPipeline = process.env.AMOCRM_PIPELINE_ID ? Number(process.env.AMOCRM_PIPELINE_ID) : null;
-  const envStatus = process.env.AMOCRM_STATUS_ID ? Number(process.env.AMOCRM_STATUS_ID) : null;
-
+async function resolvePipelineFromEnv(envPipeline, envStatus) {
   const data = await amocrmRequest('/leads/pipelines');
   const pipelines = data?._embedded?.pipelines || [];
   if (!pipelines.length) throw new Error('amoCRM: нет доступных воронок');
@@ -111,12 +108,70 @@ async function getPipelineMeta() {
   if (!status) status = openStatuses[0] || statuses[0];
   if (!status) throw new Error('amoCRM: не найден этап воронки');
 
-  cachedPipelineMeta = {
+  return {
     pipeline_id: pipeline.id,
     status_id: status.id,
     pipeline_name: pipeline.name,
     status_name: status.name
   };
+}
+
+async function ensureScentForgePipeline() {
+  const data = await amocrmRequest('/leads/pipelines');
+  const pipelines = data?._embedded?.pipelines || [];
+  let pipeline = pipelines.find(p => p.name === SCENTFORGE_PIPELINE_NAME);
+
+  if (!pipeline) {
+    const created = await amocrmRequest('/leads/pipelines', {
+      method: 'POST',
+      body: [{
+        name: SCENTFORGE_PIPELINE_NAME,
+        sort: 10,
+        is_main: false,
+        is_unsorted_on: false,
+        _embedded: {
+          statuses: [
+            { name: 'Новый заказ', sort: 10, color: '#4a90d9' },
+            { id: 142, name: 'Выполнен' },
+            { id: 143, name: 'Отменён' }
+          ]
+        }
+      }]
+    });
+    pipeline = created?._embedded?.pipelines?.[0];
+    if (!pipeline?.id) throw new Error('amoCRM: не удалось создать воронку ScentForge');
+    console.log('[CRM] Создана воронка ScentForge, id:', pipeline.id);
+  }
+
+  let statuses = pipeline._embedded?.statuses || [];
+  if (!statuses.length) {
+    const statusData = await amocrmRequest(`/leads/pipelines/${pipeline.id}/statuses`);
+    statuses = statusData?._embedded?.statuses || [];
+  }
+
+  const status = statuses.find(s => s.type === 0 && s.name === 'Новый заказ')
+    || statuses.filter(s => s.type === 0).sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))[0];
+
+  if (!status) throw new Error('amoCRM: не найден этап «Новый заказ»');
+
+  return {
+    pipeline_id: pipeline.id,
+    status_id: status.id,
+    pipeline_name: pipeline.name,
+    status_name: status.name
+  };
+}
+
+async function getPipelineMeta() {
+  if (cachedPipelineMeta) return cachedPipelineMeta;
+
+  const envPipeline = process.env.AMOCRM_PIPELINE_ID ? Number(process.env.AMOCRM_PIPELINE_ID) : null;
+  const envStatus = process.env.AMOCRM_STATUS_ID ? Number(process.env.AMOCRM_STATUS_ID) : null;
+
+  cachedPipelineMeta = envPipeline
+    ? await resolvePipelineFromEnv(envPipeline, envStatus)
+    : await ensureScentForgePipeline();
+
   return cachedPipelineMeta;
 }
 
