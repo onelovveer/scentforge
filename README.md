@@ -9,7 +9,7 @@
 - **Баланс** — пополнение в профиле (демо: мгновенное зачисление)
 - **Корзина и оплата** — списание с баланса при оформлении
 - **ИИ-помощник** — чат-консультант (OpenAI или встроенные ответы)
-- **CRM** — панель администратора с заказами и статистикой
+- **Внешняя CRM** — заказы уходят в webhook или amoCRM; админ открывает внешнюю панель по ссылке
 - **Email** — уведомление клиенту и админу при заказе
 
 ## Быстрый старт
@@ -54,6 +54,30 @@ ADMIN_EMAIL=admin@example.com
 Добавьте `OPENAI_API_KEY` в `.env` для полноценного GPT-консультанта.
 Без ключа работает встроенный fallback с рекомендациями по каталогу.
 
+## Внешняя CRM
+
+Заказы автоматически отправляются во внешнюю систему при оформлении.
+
+**Webhook** (Zapier, Make, n8n, Bitrix24 и др.):
+
+```
+CRM_URL=https://your-crm.example.com
+CRM_WEBHOOK_URL=https://hooks.zapier.com/...
+CRM_WEBHOOK_SECRET=optional-bearer-token
+```
+
+**amoCRM**:
+
+```
+CRM_PROVIDER=amocrm
+CRM_URL=https://yourcompany.amocrm.ru
+AMOCRM_SUBDOMAIN=yourcompany
+AMOCRM_ACCESS_TOKEN=your-token
+AMOCRM_PIPELINE_ID=123456
+```
+
+Ссылка «CRM» в меню сайта (только для администратора) ведёт на `CRM_URL`.
+
 ## Структура проекта
 
 ```
@@ -63,7 +87,6 @@ ADMIN_EMAIL=admin@example.com
 │   ├── index.html     — Главная / каталог
 │   ├── cart.html      — Корзина
 │   ├── profile.html   — Профиль и баланс
-│   ├── admin.html     — CRM администратора
 │   ├── css/styles.css — Стили
 │   └── js/            — Клиентский JavaScript
 └── .env.example       — Пример конфигурации
@@ -78,6 +101,5 @@ ADMIN_EMAIL=admin@example.com
 | POST | `/api/balance/topup` | Пополнение баланса |
 | POST | `/api/orders` | Оформление заказа |
 | GET | `/api/orders/my` | Мои заказы |
-| GET | `/api/admin/orders` | Все заказы (admin) |
-| GET | `/api/admin/stats` | Статистика (admin) |
+| GET | `/api/crm/status` | Статус внешней CRM (admin) |
 | POST | `/api/ai/chat` | ИИ-консультант |

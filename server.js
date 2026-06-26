@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const { db, perfumes } = require('./database');
 const { getAIResponse, getAIStatus } = require('./ai-service');
+const { getCRMUrl, getCRMStatus, sendOrderToCRM } = require('./crm-service');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -29,6 +30,13 @@ if (isProduction && /localhost|127\.0\.0\.1/i.test(GOOGLE_CALLBACK)) {
 if (isProduction) app.set('trust proxy', 1);
 
 app.use(express.json());
+
+app.get('/admin.html', (req, res) => {
+  const crmUrl = getCRMUrl();
+  if (crmUrl) return res.redirect(302, crmUrl);
+  res.status(404).send('Внешняя CRM не настроена. Укажите CRM_URL в переменных окружения сервера.');
+});
+
 app.use(express.static(PUBLIC_DIR, { index: 'index.html' }));
 
 app.get('/', (req, res) => {
@@ -98,6 +106,10 @@ function requireAuth(req, res, next) {
 function requireAdmin(req, res, next) {
   if (req.isAuthenticated() && req.user.is_admin) return next();
   res.status(403).json({ error: 'Доступ только для администратора' });
+}
+
+function crmUrlForAdmin(user) {
+  return user?.is_admin ? getCRMUrl() : null;
 }
 
 const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
@@ -207,7 +219,8 @@ app.get('/api/user', (req, res) => {
       email: user.email,
       avatar: user.avatar,
       balance: user.balance,
-      is_admin: !!user.is_admin
+      is_admin: !!user.is_admin,
+      crm_url: crmUrlForAdmin(user)
     }
   });
 });
@@ -316,6 +329,10 @@ app.post('/api/orders', requireAuth, (req, res) => {
   sendOrderEmail(order, customerEmail, user.name).catch(err => {
     console.error('[Email] Фоновая отправка заказа #' + order.id + ':', err.message);
   });
+
+  sendOrderToCRM(order, { id: user.id, name: user.name, email: customerEmail }).catch(err => {
+    console.error('[CRM] Фоновая отправка заказа #' + order.id + ':', err.message);
+  });
 });
 
 // User orders
@@ -324,24 +341,9 @@ app.get('/api/orders/my', requireAuth, (req, res) => {
   res.json(orders.map(o => ({ ...o, items: JSON.parse(o.items) })));
 });
 
-// Admin CRM
-app.get('/api/admin/orders', requireAdmin, (req, res) => {
-  const orders = db.getAllOrders();
-  res.json(orders.map(o => ({ ...o, items: JSON.parse(o.items) })));
-});
-
-app.get('/api/admin/stats', requireAdmin, (req, res) => {
-  res.json(db.getStats());
-});
-
-app.patch('/api/admin/orders/:id/status', requireAdmin, (req, res) => {
-  const { status } = req.body;
-  const valid = ['completed', 'processing', 'shipped', 'cancelled'];
-  if (!valid.includes(status)) return res.status(400).json({ error: 'Неверный статус' });
-
-  const order = db.updateOrderStatus(req.params.id, status);
-  if (!order) return res.status(404).json({ error: 'Заказ не найден' });
-  res.json({ ...order, items: JSON.parse(order.items) });
+// External CRM
+app.get('/api/crm/status', requireAdmin, (req, res) => {
+  res.json(getCRMStatus());
 });
 
 // AI Assistant
@@ -395,6 +397,13 @@ app.listen(PORT, '0.0.0.0', () => {
   } else {
     console.log('  ⚠ Email не настроен — добавьте SMTP_PASS в .env');
     console.log('    Пароль приложения: https://myaccount.google.com/apppasswords');
+  }
+
+  const crm = getCRMStatus();
+  if (crm.configured) {
+    console.log('  ✓ Внешняя CRM: ' + crm.provider + (crm.url ? ' → ' + crm.url : ''));
+  } else {
+    console.log('  ⚠ Внешняя CRM не настроена — добавьте CRM_WEBHOOK_URL или amoCRM в .env');
   }
   console.log('');
 });

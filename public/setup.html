@@ -114,11 +114,19 @@
     <div class="setup-step">
       <h3><span class="step-num">5</span> Перезапустите сервер</h3>
       <p>Остановите сервер (Ctrl+C) и снова запустите <code>npm start</code> или <code>start.bat</code>.</p>
-      <p style="margin-top:12px">После этого кнопка «Войти через Google» заработает. Первый вошедший пользователь автоматически станет администратором CRM.</p>
+      <p style="margin-top:12px">После этого кнопка «Войти через Google» заработает. Первый вошедший пользователь автоматически станет администратором.</p>
     </div>
 
     <div class="setup-step">
-      <h3><span class="step-num">6</span> ИИ-помощник (опционально, бесплатно)</h3>
+      <h3><span class="step-num">6</span> Внешняя CRM</h3>
+      <p>Заказы автоматически отправляются во внешнюю CRM при оформлении. В <code>.env</code> укажите:</p>
+      <div class="code-block">CRM_URL=https://ваша-crm.example.com<br>CRM_WEBHOOK_URL=https://ваш-webhook<br>CRM_WEBHOOK_SECRET=опционально</div>
+      <p>Для amoCRM: <code>CRM_PROVIDER=amocrm</code>, <code>AMOCRM_SUBDOMAIN</code>, <code>AMOCRM_ACCESS_TOKEN</code>.</p>
+      <p>Ссылка «CRM» в меню (только для админа) откроет внешнюю панель.</p>
+    </div>
+
+    <div class="setup-step">
+      <h3><span class="step-num">7</span> ИИ-помощник (опционально, бесплатно)</h3>
       <p>Для полноценного ИИ с пониманием любых формулировок:</p>
       <ul>
         <li>Откройте <a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a></li>

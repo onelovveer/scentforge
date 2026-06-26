@@ -33,3 +33,19 @@ services:
         sync: false
       - key: ADMIN_EMAIL
         sync: false
+      - key: ADMIN_GOOGLE_ID
+        sync: false
+      - key: CRM_URL
+        sync: false
+      - key: CRM_WEBHOOK_URL
+        sync: false
+      - key: CRM_WEBHOOK_SECRET
+        sync: false
+      - key: CRM_PROVIDER
+        sync: false
+      - key: AMOCRM_SUBDOMAIN
+        sync: false
+      - key: AMOCRM_ACCESS_TOKEN
+        sync: false
+      - key: AMOCRM_PIPELINE_ID
+        sync: false
