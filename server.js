@@ -8,7 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const { db, perfumes } = require('./database');
 const { getAIResponse, getAIStatus } = require('./ai-service');
-const { getCRMUrl, getCRMStatus, sendOrderToCRM, bootstrapCRM } = require('./crm-service');
+const { getCRMUrl, getCRMStatus, sendOrderToCRM, bootstrapCRM, testAmoCRMConnection } = require('./crm-service');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -287,7 +287,7 @@ function validateOrderItems(rawItems) {
 }
 
 // Checkout
-app.post('/api/orders', requireAuth, (req, res) => {
+app.post('/api/orders', requireAuth, async (req, res) => {
   const validated = validateOrderItems(req.body.items);
   if (validated.error) {
     return res.status(400).json({ error: validated.error });
@@ -321,18 +321,17 @@ app.post('/api/orders', requireAuth, (req, res) => {
   const { order, balance } = result;
   if (req.user) req.user.balance = balance;
 
+  const crmResult = await sendOrderToCRM(order, { id: user.id, name: user.name, email: customerEmail });
+
   res.json({
     order: { id: order.id, total: order.total, items, created_at: order.created_at },
     balance,
-    email: { sent: false, to: customerEmail, pending: !!process.env.SMTP_USER }
+    email: { sent: false, to: customerEmail, pending: !!process.env.SMTP_USER },
+    crm: crmResult
   });
 
   sendOrderEmail(order, customerEmail, user.name).catch(err => {
     console.error('[Email] Фоновая отправка заказа #' + order.id + ':', err.message);
-  });
-
-  sendOrderToCRM(order, { id: user.id, name: user.name, email: customerEmail }).catch(err => {
-    console.error('[CRM] Фоновая отправка заказа #' + order.id + ':', err.message);
   });
 });
 
@@ -345,6 +344,10 @@ app.get('/api/orders/my', requireAuth, (req, res) => {
 // amoCRM
 app.get('/api/crm/status', requireAdmin, (req, res) => {
   res.json(getCRMStatus());
+});
+
+app.post('/api/crm/test', requireAdmin, async (req, res) => {
+  res.json(await testAmoCRMConnection());
 });
 
 // AI Assistant

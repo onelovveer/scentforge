@@ -214,12 +214,21 @@ function finishCheckoutSuccess(data) {
 
   const orderId = data.order?.id;
   const emailTo = data.email?.to;
-  if (data.email?.sent) {
+
+  if (data.crm?.sent) {
+    showToast(`Заказ #${orderId} оформлен! Сделка создана в amoCRM`, 'success');
+  } else if (data.email?.sent) {
     showToast(`Заказ #${orderId} оформлен! Письмо отправлено на ${emailTo}`, 'success');
   } else if (emailTo) {
     showToast(`Заказ #${orderId} оформлен! Подтверждение придёт на ${emailTo}`, 'success');
   } else {
     showToast(`Заказ #${orderId} оформлен!`, 'success');
+  }
+
+  if (data.crm && !data.crm.sent && currentUser?.is_admin) {
+    setTimeout(() => {
+      showToast(`amoCRM: ${data.crm.error || 'не отправлено — проверьте настройки в Render'}`, 'error');
+    }, 500);
   }
 
   setTimeout(() => { window.location.href = 'profile.html'; }, 1500);
