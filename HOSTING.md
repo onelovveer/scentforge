@@ -61,7 +61,7 @@
 - [ ] Вход через Google
 - [ ] Корзина и заказ
 - [ ] ИИ-консультант
-- [ ] CRM: войти как админ → меню «CRM» (настраивается автоматически)
+- [ ] amoCRM: `AMOCRM_SUBDOMAIN` + `AMOCRM_ACCESS_TOKEN` в Environment
 
 ---
 

@@ -118,9 +118,18 @@
     </div>
 
     <div class="setup-step">
-      <h3><span class="step-num">6</span> Внешняя CRM</h3>
-      <p>Настраивается <strong>автоматически</strong> при запуске сервера. Отдельная панель: <code>/crm/</code></p>
-      <p style="margin-top:12px">Администратор магазина нажимает <strong>«CRM»</strong> в меню сайта — откроется панель заказов. Ничего вручную указывать не нужно.</p>
+      <h3><span class="step-num">6</span> amoCRM (внешняя CRM)</h3>
+      <p>Каждый заказ автоматически создаёт <strong>сделку</strong> в amoCRM с контактом клиента и составом заказа.</p>
+      <ul>
+        <li>Зарегистрируйтесь на <a href="https://www.amocrm.ru" target="_blank">amocrm.ru</a></li>
+        <li>Откройте <strong>amoМаркет → Создать интеграцию → Внешняя интеграция</strong></li>
+        <li>Скопируйте <strong>долгосрочный токен</strong> (Access token)</li>
+        <li>Поддомен — часть адреса: <code>https://<b>company</b>.amocrm.ru</code> → <code>company</code></li>
+      </ul>
+      <p>Добавьте в <code>.env</code> или Render → Environment:</p>
+      <div class="code-block">CRM_PROVIDER=amocrm<br>AMOCRM_SUBDOMAIN=company<br>AMOCRM_ACCESS_TOKEN=ваш-токен<br>AMOCRM_PIPELINE_ID=123456</div>
+      <p style="margin-top:12px"><strong>AMOCRM_PIPELINE_ID</strong> — ID воронки (необязательно). Найти: Настройки → Воронки → в URL будет <code>/pipeline/123456</code></p>
+      <p>Админ магазина: меню <strong>«CRM»</strong> → откроется amoCRM.</p>
     </div>
 
     <div class="setup-step">

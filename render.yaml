@@ -35,5 +35,13 @@ services:
         sync: false
       - key: ADMIN_GOOGLE_ID
         sync: false
-      - key: CRM_ACCESS_TOKEN
-        generateValue: true
+      - key: CRM_PROVIDER
+        value: amocrm
+      - key: AMOCRM_SUBDOMAIN
+        sync: false
+      - key: AMOCRM_ACCESS_TOKEN
+        sync: false
+      - key: AMOCRM_PIPELINE_ID
+        sync: false
+      - key: AMOCRM_STATUS_ID
+        sync: false
