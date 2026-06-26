@@ -62,6 +62,7 @@ function updateHeaderUI() {
   const userMenu = document.getElementById('user-menu');
   const balanceEl = document.getElementById('header-balance');
   const adminLink = document.getElementById('admin-link');
+  const crmLink = document.getElementById('crm-link');
 
   if (!userMenu) return;
 
@@ -76,11 +77,13 @@ function updateHeaderUI() {
       balanceEl.style.display = 'inline';
       balanceEl.textContent = formatPrice(currentUser.balance);
     }
-    if (adminLink && currentUser.is_admin && currentUser.crm_url) {
-      adminLink.href = currentUser.crm_url;
-      adminLink.target = '_blank';
-      adminLink.rel = 'noopener noreferrer';
+    if (adminLink && currentUser.is_admin) {
+      adminLink.href = '/admin.html';
       adminLink.style.display = 'inline';
+    }
+    if (crmLink && currentUser.is_admin && currentUser.crm_url) {
+      crmLink.href = currentUser.crm_url;
+      crmLink.style.display = 'inline';
     }
   } else {
     const authHref = googleAuthReady ? SF.authUrl() : 'setup.html';

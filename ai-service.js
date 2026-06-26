@@ -381,6 +381,39 @@ function conversationalFallback(message, history) {
   return `Могу подобрать аромат из ScentForge под ваш случай. Например:\n${hints}\n\nОпишите подробнее — куда идёте, какой бюджет, какой характер запаха хотите (свежий, сладкий, кожаный)?`;
 }
 
+async function generateProductDescription(name, brand) {
+  const systemPrompt = `Ты — профессиональный копирайтер элитного парфюмерного магазина ScentForge.
+Твоя задача: написать одно лаконичное, привлекательное и экспертное предложение-описание для мужского парфюма.
+Описание должно подчеркивать статус, характер и уникальность аромата.
+Язык: Русский.
+Формат: Только одно предложение. Без кавычек.
+
+Пример:
+Dior Sauvage — это манифест свободы, воплощенный в мощном и благородном звучании свежих цитрусов и древесных нот.`;
+
+  const userPrompt = `Напиши описание для парфюма: ${brand} ${name}`;
+
+  try {
+    // Try Gemini
+    let result = await callGemini(userPrompt, [], systemPrompt);
+    if (result) return result.text;
+
+    // Try Groq
+    result = await callGroq(userPrompt, [], systemPrompt);
+    if (result) return result.text;
+
+    // Try OpenAI
+    result = await callOpenAI(userPrompt, [], systemPrompt);
+    if (result) return result.text;
+
+    // Static fallback
+    return `${brand} ${name} — это утонченный выбор для современного мужчины, подчеркивающий его индивидуальность и стиль.`;
+  } catch (err) {
+    console.error('[AI] Description generation error:', err.message);
+    return `${brand} ${name} — это утонченный выбор для современного мужчины, подчеркивающий его индивидуальность и стиль.`;
+  }
+}
+
 async function getAIResponse(message, history = []) {
   const msg = normalize(message);
 
@@ -428,4 +461,4 @@ function getAIStatus() {
   };
 }
 
-module.exports = { getAIResponse, getAIStatus, smartRecommend: conversationalFallback };
+module.exports = { getAIResponse, getAIStatus, generateProductDescription, smartRecommend: conversationalFallback };
