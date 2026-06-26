@@ -31,15 +31,6 @@ if (isProduction) app.set('trust proxy', 1);
 
 app.use(express.json());
 
-app.get('/admin.html', requireAdmin, (req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'admin.html'));
-});
-
-app.use(express.static(PUBLIC_DIR, { index: 'index.html' }));
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
-});
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
@@ -52,6 +43,16 @@ app.use(session({
 }));
 app.use(passport.initialize());
 app.use(passport.session());
+
+app.get('/admin.html', requireAdmin, (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'admin.html'));
+});
+
+app.use(express.static(PUBLIC_DIR, { index: 'index.html' }));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+});
 
 passport.serializeUser((user, done) => done(null, user.id));
 passport.deserializeUser((id, done) => {
