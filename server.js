@@ -7,7 +7,7 @@ const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
 const { db, perfumes } = require('./database');
-const { getAIResponse, getAIStatus } = require('./ai-service');
+const { getAIResponse, getAIStatus, generateProductDescription } = require('./ai-service');
 const { getCRMUrl, getCRMStatus, sendOrderToCRM, bootstrapCRM, testAmoCRMConnection } = require('./crm-service');
 
 const app = express();
@@ -31,10 +31,8 @@ if (isProduction) app.set('trust proxy', 1);
 
 app.use(express.json());
 
-app.get('/admin.html', (req, res) => {
-  const crmUrl = getCRMUrl();
-  if (crmUrl) return res.redirect(302, crmUrl);
-  res.status(503).send('amoCRM не настроена. Добавьте AMOCRM_SUBDOMAIN и AMOCRM_ACCESS_TOKEN в переменные окружения.');
+app.get('/admin.html', requireAdmin, (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'admin.html'));
 });
 
 app.use(express.static(PUBLIC_DIR, { index: 'index.html' }));
@@ -228,7 +226,40 @@ app.get('/api/user', (req, res) => {
 
 // Products
 app.get('/api/products', (req, res) => {
-  res.json(perfumes);
+  res.json(db.getAllProducts());
+});
+
+// Admin Products API
+app.get('/api/admin/products', requireAdmin, (req, res) => {
+  res.json(db.getAllProducts());
+});
+
+app.post('/api/admin/products', requireAdmin, (req, res) => {
+  const product = db.createProduct(req.body);
+  res.status(201).json(product);
+});
+
+app.put('/api/admin/products/:id', requireAdmin, (req, res) => {
+  const product = db.updateProduct(req.params.id, req.body);
+  if (!product) return res.status(404).json({ error: 'Товар не найден' });
+  res.json(product);
+});
+
+app.delete('/api/admin/products/:id', requireAdmin, (req, res) => {
+  const success = db.deleteProduct(req.params.id);
+  if (!success) return res.status(404).json({ error: 'Товар не найден' });
+  res.json({ success: true });
+});
+
+app.post('/api/admin/generate-description', requireAdmin, async (req, res) => {
+  const { name, brand } = req.body;
+  if (!name || !brand) return res.status(400).json({ error: 'Название и бренд обязательны' });
+  try {
+    const description = await generateProductDescription(name, brand);
+    res.json({ description });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка генерации описания' });
+  }
 });
 
 // Balance top-up
@@ -259,7 +290,7 @@ function validateOrderItems(rawItems) {
       return { error: 'Некорректное количество товара' };
     }
 
-    const product = perfumes.find(p => p.id === id);
+    const product = db.getProductById(id);
     if (!product) {
       return { error: `Товар «${item.name || id}» больше не доступен` };
     }

@@ -5,10 +5,31 @@ const { perfumes } = require('./products');
 const DB_FILE = path.join(__dirname, 'data.json');
 
 function load() {
+  let data;
   if (!fs.existsSync(DB_FILE)) {
-    return { users: [], orders: [], balance_transactions: [], nextId: { users: 1, orders: 1, balance_transactions: 1 } };
+    data = {
+      users: [],
+      orders: [],
+      balance_transactions: [],
+      products: [],
+      nextId: { users: 1, orders: 1, balance_transactions: 1, products: 1 }
+    };
+  } else {
+    data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
   }
-  return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+
+  // Seed products if missing or empty on first run
+  if (!data.products || (data.products.length === 0 && (!data.nextId.products || data.nextId.products === 1))) {
+    data.products = JSON.parse(JSON.stringify(perfumes));
+    const maxId = data.products.reduce((max, p) => Math.max(max, p.id || 0), 0);
+    data.nextId = data.nextId || {};
+    data.nextId.products = maxId + 1;
+    if (!data.nextId.users) data.nextId.users = 1;
+    if (!data.nextId.orders) data.nextId.orders = 1;
+    if (!data.nextId.balance_transactions) data.nextId.balance_transactions = 1;
+    save(data);
+  }
+  return data;
 }
 
 function save(data) {
@@ -189,6 +210,54 @@ const db = {
 
     save(data);
     return order;
+  },
+
+  // PRODUCT CRUD
+  getAllProducts() {
+    return load().products || [];
+  },
+
+  getProductById(id) {
+    const numId = parseInt(id);
+    return load().products.find(p => p.id === numId) || null;
+  },
+
+  createProduct(productData) {
+    const data = load();
+    const product = {
+      ...productData,
+      id: data.nextId.products++,
+      created_at: now()
+    };
+    data.products.push(product);
+    save(data);
+    return product;
+  },
+
+  updateProduct(id, productData) {
+    const data = load();
+    const numId = parseInt(id);
+    const index = data.products.findIndex(p => p.id === numId);
+    if (index === -1) return null;
+
+    data.products[index] = {
+      ...data.products[index],
+      ...productData,
+      id: numId // Preserve original ID
+    };
+    save(data);
+    return data.products[index];
+  },
+
+  deleteProduct(id) {
+    const data = load();
+    const numId = parseInt(id);
+    const index = data.products.findIndex(p => p.id === numId);
+    if (index === -1) return false;
+
+    data.products.splice(index, 1);
+    save(data);
+    return true;
   }
 };
 

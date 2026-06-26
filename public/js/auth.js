@@ -76,10 +76,8 @@ function updateHeaderUI() {
       balanceEl.style.display = 'inline';
       balanceEl.textContent = formatPrice(currentUser.balance);
     }
-    if (adminLink && currentUser.is_admin && currentUser.crm_url) {
-      adminLink.href = currentUser.crm_url;
-      adminLink.target = '_blank';
-      adminLink.rel = 'noopener noreferrer';
+    if (adminLink && currentUser.is_admin) {
+      adminLink.href = '/admin.html';
       adminLink.style.display = 'inline';
     }
   } else {
