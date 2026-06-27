@@ -75,10 +75,11 @@
   </header>
 
   <div class="container setup-page">
-    <h1>Подключение Google OAuth</h1>
-    <p class="lead">Чтобы войти через Google, нужно создать OAuth-приложение в Google Cloud и добавить ключи в файл <code>.env</code>.</p>
+    <h1>Подключение Google и Яндекс OAuth</h1>
+    <p class="lead">Чтобы пользователи могли входить через соцсети, создайте OAuth-приложения и добавьте ключи в файл <code>.env</code>.</p>
 
-    <div id="auth-status" class="status-box status-warn">Проверка статуса...</div>
+    <div id="auth-status-google" class="status-box status-warn">Google OAuth: Проверка...</div>
+    <div id="auth-status-yandex" class="status-box status-warn">Яндекс OAuth: Проверка...</div>
 
     <div class="setup-step">
       <h3><span class="step-num">1</span> Установите Node.js</h3>
@@ -95,20 +96,26 @@
     <div class="setup-step">
       <h3><span class="step-num">3</span> Создайте OAuth в Google Cloud</h3>
       <ul>
-        <li>Откройте <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console → Credentials</a></li>
-        <li>Создайте проект (если нет)</li>
-        <li><strong>Create Credentials → OAuth client ID</strong></li>
-        <li>Тип: <strong>Web application</strong></li>
-        <li>В <strong>Authorized redirect URIs</strong> добавьте:</li>
+        <li>Откройте <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a></li>
+        <li><strong>Authorized redirect URIs:</strong></li>
       </ul>
-      <div class="code-block" id="callback-url">http://localhost:3000/auth/google/callback</div>
-      <p>Скопируйте <strong>Client ID</strong> и <strong>Client Secret</strong>.</p>
+      <div class="code-block" id="callback-url-google">http://localhost:3000/auth/google/callback</div>
+      <p>В <code>.env</code>:</p>
+      <div class="code-block">GOOGLE_CLIENT_ID=...<br>GOOGLE_CLIENT_SECRET=...</div>
     </div>
 
     <div class="setup-step">
-      <h3><span class="step-num">4</span> Добавьте ключи в .env</h3>
-      <p>Откройте файл <code>.env</code> в корне проекта и вставьте:</p>
-      <div class="code-block">GOOGLE_CLIENT_ID=ваш-client-id.apps.googleusercontent.com<br>GOOGLE_CLIENT_SECRET=ваш-client-secret<br>GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback</div>
+      <h3><span class="step-num">4</span> Создайте OAuth в Яндекс ID</h3>
+      <ul>
+        <li>Откройте <a href="https://oauth.yandex.ru" target="_blank">oauth.yandex.ru</a></li>
+        <li><strong>Создать приложение</strong></li>
+        <li>Платформы: <strong>Веб-сервисы</strong></li>
+        <li><strong>Redirect URI:</strong></li>
+      </ul>
+      <div class="code-block" id="callback-url-yandex">http://localhost:3000/auth/yandex/callback</div>
+      <p>Доступы: <strong>Яндекс ID (Почта, Имя, Фамилия, Аватар)</strong></p>
+      <p>В <code>.env</code>:</p>
+      <div class="code-block">YANDEX_CLIENT_ID=...<br>YANDEX_CLIENT_SECRET=...</div>
     </div>
 
     <div class="setup-step">
@@ -184,13 +191,16 @@
 
   <script>
     async function checkStatus() {
-      const box = document.getElementById('auth-status');
+      const boxG = document.getElementById('auth-status-google');
+      const boxY = document.getElementById('auth-status-yandex');
       const tryBtn = document.getElementById('try-login');
       const emailBox = document.getElementById('email-status');
 
       if (location.protocol === 'file:') {
-        box.className = 'status-box status-err';
-        box.textContent = 'Сервер не запущен. Откройте сайт через http://localhost:3000 (запустите start.bat)';
+        boxG.className = 'status-box status-err';
+        boxG.textContent = 'Сервер не запущен';
+        boxY.className = 'status-box status-err';
+        boxY.textContent = 'Сервер не запущен';
         if (emailBox) {
           emailBox.className = 'status-box status-err';
           emailBox.textContent = 'Сервер не запущен';
@@ -205,15 +215,24 @@
         ]);
         const data = await authRes.json();
         const emailData = await emailRes.json();
-        document.getElementById('callback-url').textContent = data.callbackUrl;
 
-        if (data.configured) {
-          box.className = 'status-box status-ok';
-          box.textContent = data.loggedIn ? '✓ Google OAuth подключён. Вы уже вошли в аккаунт.' : '✓ Google OAuth подключён. Можно входить через Google.';
-          tryBtn.style.display = 'inline-flex';
+        document.getElementById('callback-url-google').textContent = data.google.callbackUrl;
+        document.getElementById('callback-url-yandex').textContent = data.yandex.callbackUrl;
+
+        if (data.google.configured) {
+          boxG.className = 'status-box status-ok';
+          boxG.textContent = '✓ Google OAuth подключён';
         } else {
-          box.className = 'status-box status-warn';
-          box.textContent = 'Google OAuth ещё не настроен. Выполните шаги ниже и добавьте ключи в .env';
+          boxG.className = 'status-box status-warn';
+          boxG.textContent = 'Google OAuth не настроен';
+        }
+
+        if (data.yandex.configured) {
+          boxY.className = 'status-box status-ok';
+          boxY.textContent = '✓ Яндекс OAuth подключён';
+        } else {
+          boxY.className = 'status-box status-warn';
+          boxY.textContent = 'Яндекс OAuth не настроен';
         }
 
         if (emailBox) {

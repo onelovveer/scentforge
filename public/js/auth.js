@@ -1,5 +1,6 @@
 let currentUser = null;
 let googleAuthReady = false;
+let yandexAuthReady = false;
 let authPromise = null;
 
 async function initAuth() {
@@ -31,7 +32,8 @@ async function initAuth() {
       const statusData = await statusRes.json();
 
       currentUser = userData.user;
-      googleAuthReady = statusData.configured;
+      googleAuthReady = statusData.google.configured;
+      yandexAuthReady = statusData.yandex.configured;
 
       console.log('[Auth] Logged in as:', currentUser ? `${currentUser.name} (Admin: ${!!currentUser.is_admin})` : 'Guest');
 
@@ -68,11 +70,11 @@ function updateAuthBanner(status) {
     return;
   }
 
-  if (!status.configured) {
+  if (!status.google.configured && !status.yandex.configured) {
     banner.style.display = 'flex';
     banner.className = 'auth-banner auth-banner-warn';
     banner.innerHTML = `
-      <span>Google OAuth не настроен — войти через Google пока нельзя.</span>
+      <span>OAuth не настроен — вход через соцсети недоступен.</span>
       <a href="setup.html" class="btn btn-sm btn-primary">Инструкция по настройке</a>
     `;
   } else {
@@ -108,9 +110,17 @@ function updateHeaderUI() {
       crmLink.style.display = 'inline';
     }
   } else {
-    const authHref = googleAuthReady ? SF.authUrl() : 'setup.html';
-    const authLabel = googleAuthReady ? 'Войти через Google' : 'Настроить Google';
-    userMenu.innerHTML = `<a href="${authHref}" class="btn btn-outline btn-sm" data-auth-link>${authLabel}</a>`;
+    let authContent = '';
+    if (googleAuthReady) {
+      authContent += `<a href="/auth/google" class="btn btn-outline btn-sm" style="margin-right:8px">Google</a>`;
+    }
+    if (yandexAuthReady) {
+      authContent += `<a href="/auth/yandex" class="btn btn-outline btn-sm">Yandex</a>`;
+    }
+    if (!googleAuthReady && !yandexAuthReady) {
+      authContent = `<a href="setup.html" class="btn btn-outline btn-sm">Настроить вход</a>`;
+    }
+    userMenu.innerHTML = authContent;
     setupAuthLinks();
     if (balanceEl) balanceEl.style.display = 'none';
     if (adminLink) adminLink.style.display = 'none';
@@ -122,8 +132,8 @@ function requireAuth() {
     showToast('Запустите сервер через start.bat', 'error');
     return false;
   }
-  if (!googleAuthReady) {
-    showToast('Сначала настройте Google OAuth', 'error');
+  if (!googleAuthReady && !yandexAuthReady) {
+    showToast('Сначала настройте OAuth', 'error');
     window.location.href = 'setup.html';
     return false;
   }
@@ -135,12 +145,18 @@ function requireAuth() {
 }
 
 function openAuthModal() {
-  if (!googleAuthReady) {
+  if (!googleAuthReady && !yandexAuthReady) {
     window.location.href = 'setup.html';
     return;
   }
   const modal = document.getElementById('auth-modal');
-  if (modal) modal.classList.add('open');
+  if (modal) {
+    const mGoogle = document.getElementById('modal-google');
+    const mYandex = document.getElementById('modal-yandex');
+    if (mGoogle) mGoogle.style.display = googleAuthReady ? 'block' : 'none';
+    if (mYandex) mYandex.style.display = yandexAuthReady ? 'block' : 'none';
+    modal.classList.add('open');
+  }
 }
 
 function closeAuthModal() {

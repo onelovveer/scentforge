@@ -3,6 +3,7 @@ const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const YandexStrategy = require('passport-yandex').Strategy;
 const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
@@ -52,6 +53,7 @@ if (isProduction && /localhost|127\.0\.0\.1/i.test(GOOGLE_CALLBACK)) {
 }
 
 const isGoogleConfigured = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+const isYandexConfigured = () => !!(process.env.YANDEX_CLIENT_ID && process.env.YANDEX_CLIENT_SECRET);
 
 if (isGoogleConfigured()) {
   passport.use(new GoogleStrategy({
@@ -60,10 +62,9 @@ if (isGoogleConfigured()) {
     callbackURL: GOOGLE_CALLBACK
   }, (accessToken, refreshToken, profile, done) => {
     let user = db.getUserByGoogleId(profile.id);
-    const adminGoogleId = process.env.ADMIN_GOOGLE_ID;
+    const adminId = process.env.ADMIN_GOOGLE_ID || process.env.ADMIN_YANDEX_ID;
     const userCount = db.getUserCount();
-    // Logic: First user ever is admin, OR Google ID matches env, OR user already has is_admin flag in DB
-    const isAdmin = (adminGoogleId && profile.id === adminGoogleId) || (!adminGoogleId && userCount === 0) || (user && user.is_admin);
+    const isAdmin = (adminId && profile.id === adminId) || (!adminId && userCount === 0) || (user && user.is_admin);
 
     if (!user) {
       user = db.createUser({
@@ -73,10 +74,39 @@ if (isGoogleConfigured()) {
         avatar: profile.photos?.[0]?.value || null,
         is_admin: isAdmin
       });
-      console.log(`\n  ✓ Новый пользователь: ${user.name} (${user.email})`);
-      console.log(`    Google ID: ${profile.id}`);
-      if (isAdmin) console.log('    Назначен администратором (первый пользователь)\n');
-      else console.log(`    Для назначения админом добавьте в .env: ADMIN_GOOGLE_ID=${profile.id}\n`);
+      console.log(`\n  ✓ Новый пользователь (Google): ${user.name} (${user.email})`);
+    } else {
+      user = db.updateUser(user.id, {
+        email: profile.emails?.[0]?.value || user.email,
+        name: profile.displayName,
+        avatar: profile.photos?.[0]?.value || user.avatar,
+        is_admin: isAdmin || user.is_admin
+      });
+    }
+    done(null, user);
+  }));
+}
+
+if (isYandexConfigured()) {
+  passport.use(new YandexStrategy({
+    clientID: process.env.YANDEX_CLIENT_ID,
+    clientSecret: process.env.YANDEX_CLIENT_SECRET,
+    callbackURL: process.env.YANDEX_CALLBACK_URL || `${publicBaseUrl()}/auth/yandex/callback`
+  }, (accessToken, refreshToken, profile, done) => {
+    let user = db.getUserByYandexId(profile.id);
+    const adminId = process.env.ADMIN_YANDEX_ID || process.env.ADMIN_GOOGLE_ID;
+    const userCount = db.getUserCount();
+    const isAdmin = (adminId && profile.id === adminId) || (!adminId && userCount === 0) || (user && user.is_admin);
+
+    if (!user) {
+      user = db.createUser({
+        yandex_id: profile.id,
+        email: profile.emails[0].value,
+        name: profile.displayName,
+        avatar: profile.photos?.[0]?.value || null,
+        is_admin: isAdmin
+      });
+      console.log(`\n  ✓ Новый пользователь (Yandex): ${user.name} (${user.email})`);
     } else {
       user = db.updateUser(user.id, {
         email: profile.emails?.[0]?.value || user.email,
@@ -188,25 +218,36 @@ app.get('/api/email/status', (req, res) => {
 
 app.get('/api/auth/status', (req, res) => {
   res.json({
-    configured: isGoogleConfigured(),
-    callbackUrl: GOOGLE_CALLBACK,
+    google: {
+      configured: isGoogleConfigured(),
+      callbackUrl: GOOGLE_CALLBACK
+    },
+    yandex: {
+      configured: isYandexConfigured(),
+      callbackUrl: process.env.YANDEX_CALLBACK_URL || `${publicBaseUrl()}/auth/yandex/callback`
+    },
     loggedIn: !!req.user
   });
 });
 
 app.get('/auth/google', (req, res, next) => {
-  if (!isGoogleConfigured()) {
-    return res.redirect('/setup.html');
-  }
+  if (!isGoogleConfigured()) return res.redirect('/setup.html');
   passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
 
 app.get('/auth/google/callback', (req, res, next) => {
-  if (!isGoogleConfigured()) {
-    return res.redirect('/setup.html');
-  }
-  passport.authenticate('google', { failureRedirect: '/?error=auth_failed' })(req, res, (err) => {
-    if (err) return res.redirect('/?error=auth_failed');
+  passport.authenticate('google', { failureRedirect: '/?error=auth_failed' })(req, res, () => {
+    res.redirect('/?login=success');
+  });
+});
+
+app.get('/auth/yandex', (req, res, next) => {
+  if (!isYandexConfigured()) return res.redirect('/setup.html');
+  passport.authenticate('yandex')(req, res, next);
+});
+
+app.get('/auth/yandex/callback', (req, res, next) => {
+  passport.authenticate('yandex', { failureRedirect: '/?error=auth_failed' })(req, res, () => {
     res.redirect('/?login=success');
   });
 });
