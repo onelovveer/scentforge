@@ -15,6 +15,29 @@ const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
+if (isProduction) app.set('trust proxy', 1);
+
+app.use(express.json());
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'dev-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    secure: isProduction,
+    sameSite: 'lax'
+  }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.serializeUser((user, done) => done(null, user.id));
+passport.deserializeUser((id, done) => {
+  const user = db.getUserById(id);
+  done(null, user || null);
+});
+
 const publicBaseUrl = () => {
   const render = process.env.RENDER_EXTERNAL_URL;
   if (render) return render.replace(/\/$/, '');
@@ -26,39 +49,6 @@ let GOOGLE_CALLBACK = process.env.GOOGLE_CALLBACK_URL || `${publicBaseUrl()}/aut
 if (isProduction && /localhost|127\.0\.0\.1/i.test(GOOGLE_CALLBACK)) {
   GOOGLE_CALLBACK = `${publicBaseUrl()}/auth/google/callback`;
 }
-
-if (isProduction) app.set('trust proxy', 1);
-
-app.use(express.json());
-
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'dev-secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    secure: isProduction,
-    sameSite: 'lax'
-  }
-}));
-app.use(passport.initialize());
-app.use(passport.session());
-
-app.get('/admin.html', requireAdmin, (req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'admin.html'));
-});
-
-app.use(express.static(PUBLIC_DIR, { index: 'index.html' }));
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
-});
-
-passport.serializeUser((user, done) => done(null, user.id));
-passport.deserializeUser((id, done) => {
-  const user = db.getUserById(id);
-  done(null, user || null);
-});
 
 const isGoogleConfigured = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
@@ -97,13 +87,23 @@ if (isGoogleConfigured()) {
   }));
 }
 
+app.get('/admin.html', requireAdmin, (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'admin.html'));
+});
+
+app.use(express.static(PUBLIC_DIR, { index: 'index.html' }));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+});
+
 function requireAuth(req, res, next) {
-  if (req.isAuthenticated()) return next();
+  if (req.isAuthenticated && req.isAuthenticated()) return next();
   res.status(401).json({ error: 'Требуется авторизация' });
 }
 
 function requireAdmin(req, res, next) {
-  if (req.isAuthenticated() && req.user.is_admin) return next();
+  if (req.isAuthenticated && req.isAuthenticated() && req.user && req.user.is_admin) return next();
   res.status(403).json({ error: 'Доступ только для администратора' });
 }
 
