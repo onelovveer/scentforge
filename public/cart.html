@@ -1,80 +1,83 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Корзина — ScentForge</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Корзина — ScentForge</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="header">
-    <div class="container header-inner">
-      <a href="index.html" class="logo">Scent<span>Forge</span></a>
-      <nav class="nav">
-        <a href="index.html">Каталог</a>
-        <a href="cart.html" class="active">Корзина</a>
-        <a href="profile.html">Профиль</a>
-        <a href="admin.html" id="admin-link" style="display:none">Админ</a>
-        <a href="#" id="crm-link" style="display:none" target="_blank">амоCRM</a>
-      </nav>
-      <div class="header-actions">
-        <span class="balance-badge" id="header-balance" style="display:none">0 ₽</span>
-        <a href="cart.html" class="cart-btn" aria-label="Корзина">
-          🛒
-          <span class="cart-count" id="cart-count" style="display:none">0</span>
-        </a>
-        <div class="user-menu" id="user-menu">
-          <a href="#" class="btn btn-outline btn-sm" data-auth-link>Войти через Google</a>
+    <header class="header">
+        <div class="header-inner container">
+            <div class="logo">
+                <a href="index.html"><span>Scent</span><span>Forge</span></a>
+            </div>
+            <nav class="nav">
+                <a href="index.html">Каталог</a>
+                <a href="cart.html">Корзина</a>
+                <a href="profile.html">Профиль</a>
+                <a href="admin.html">Админ</a>
+                <a href="#">амоCRM</a>
+            </nav>
+            <div class="header-actions">
+                <div class="balance-badge" id="balanceAmount">0 ₽</div>
+                <a href="cart.html" class="cart-btn">
+                    🛒
+                    <span class="cart-count" id="cartCount">0</span>
+                </a>
+                <button id="loginBtn" class="btn btn-ghost">Войти</button>
+            </div>
         </div>
-      </div>
-    </div>
-  </header>
+    </header>
 
-  <div class="container">
-    <div class="page-header">
-      <h1>Корзина</h1>
-    </div>
-
-    <div id="cart-content" style="display:none">
-      <div class="cart-layout">
-        <div class="cart-items" id="cart-items"></div>
-        <div class="cart-summary" id="cart-summary">
-          <h3>Итого</h3>
-          <div class="summary-row"><span>Товаров</span><span id="summary-count">0</span></div>
-          <div class="summary-row"><span>Ваш баланс</span><span id="summary-balance">0 ₽</span></div>
-          <div class="summary-total"><span>К оплате</span><span id="summary-total">0 ₽</span></div>
-          <p id="balance-warning" style="display:none;font-size:0.85rem;color:#e74c3c;margin:12px 0 0;text-align:center"></p>
-          <button type="button" class="btn btn-primary" style="width:100%;margin-top:12px" id="checkout-btn">Оплатить с баланса</button>
-          <p id="order-email-hint" style="font-size:0.8rem;color:var(--text-muted);margin-top:12px;text-align:center;display:none">
-            Подтверждение заказа придёт на: <strong id="order-email"></strong>
-          </p>
-          <p style="font-size:0.8rem;color:var(--text-muted);margin-top:8px;text-align:center">
-            Средства списываются с баланса аккаунта
-          </p>
+    <main class="container" style="padding: 60px 24px;">
+        <div class="page-header">
+            <h1 class="section-title">Корзина</h1>
         </div>
-      </div>
-    </div>
 
-    <div class="empty-state" id="cart-empty" style="display:none">
-      <div class="empty-state-icon">🛒</div>
-      <h2>Корзина пуста</h2>
-      <p style="margin:12px 0 24px">Добавьте ароматы из каталога</p>
-      <a href="index.html" class="btn btn-primary">Перейти в каталог</a>
-    </div>
-  </div>
+        <div id="emptyCart" class="empty-state">
+            <div class="empty-state-icon">🛒</div>
+            <h3>Корзина пуста</h3>
+            <p>Добавьте ароматы из каталога</p>
+            <a href="index.html" class="btn btn-primary" style="margin-top: 20px;">Перейти в каталог</a>
+        </div>
 
-  <div class="toast" id="toast"></div>
+        <div id="cartContent" class="cart-layout" style="display: none;">
+            <div class="cart-items" id="cartItems">
+                <!-- Товары будут здесь -->
+            </div>
 
-  <script src="js/config.js?v=4"></script>
-  <script src="js/auth.js?v=4"></script>
-  <script src="js/cart.js?v=4"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      initAuth().then(() => initCartPage());
-    });
-  </script>
+            <div class="cart-summary">
+                <h3>Итого</h3>
+                <div class="summary-row">
+                    <span>Товаров:</span>
+                    <span id="totalItems">0</span>
+                </div>
+                <div class="summary-row">
+                    <span>Ваш баланс:</span>
+                    <span id="userBalance">0 ₽</span>
+                </div>
+                <div class="summary-total">
+                    <span>К оплате:</span>
+                    <span id="totalAmount">0 ₽</span>
+                </div>
+                <button id="checkoutBtn" class="btn btn-primary" style="width: 100%;">
+                    Оплатить с баланса
+                </button>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 12px; text-align: center;">
+                    Подтверждение заказа придёт на email<br>
+                    Средства списываются с баланса аккаунта
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>© 2026 ScentForge. Маркетплейс мужской парфюмерии.</p>
+        </div>
+    </footer>
+
+    <script src="cart.js"></script>
 </body>
 </html>
