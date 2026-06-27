@@ -7,76 +7,83 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-container">
+    <header class="header">
+        <div class="header-inner container">
             <div class="logo">
                 <a href="index.html"><span>Scent</span><span>Forge</span></a>
             </div>
-            <ul class="nav-menu">
-                <li><a href="index.html">Каталог</a></li>
-                <li><a href="cart.html">Корзина</a></li>
-                <li><a href="profile.html">Профиль</a></li>
-                <li><a href="admin.html">Админ</a></li>
-                <li><a href="#">амоCRM</a></li>
-            </ul>
-            <div class="nav-right">
-                <div class="balance-display">
-                    <span id="balanceAmount">0 ₽</span>
-                </div>
-                <a href="cart.html" class="cart-icon">
+            <nav class="nav">
+                <a href="index.html">Каталог</a>
+                <a href="cart.html">Корзина</a>
+                <a href="profile.html">Профиль</a>
+                <a href="admin.html">Админ</a>
+                <a href="#">амоCRM</a>
+            </nav>
+            <div class="header-actions">
+                <div class="balance-badge" id="balanceAmount">0 ₽</div>
+                <a href="cart.html" class="cart-btn">
                     🛒
                     <span class="cart-count" id="cartCount">0</span>
                 </a>
-                <button id="loginBtn" class="btn-login">[Войти через Google](#)</button>
-                <button id="yandexLoginBtn" class="btn-login" style="display:none;">[Войти через Яндекс](/auth/yandex)</button>
+                <button id="loginBtn" class="btn btn-ghost">Войти</button>
             </div>
         </div>
-    </nav>
+    </header>
 
-    <main class="profile-main">
-        <div id="notLoggedIn" class="profile-section">
-            <h2>Личный кабинет</h2>
-            <div class="profile-avatar">👤</div>
-            <h3>Войдите в аккаунт</h3>
-            <p>Для доступа к профилю и балансу</p>
-            <div class="login-buttons">
-                <a href="/auth/google" class="btn-google">Войти через Google</a>
-                <a href="/auth/yandex" class="btn-yandex">Войти через Яндекс</a>
+    <main class="container" style="padding: 60px 24px;">
+        <div id="notLoggedIn">
+            <div class="profile-card" style="max-width: 500px; margin: 0 auto; text-align: center;">
+                <h3 class="section-title">Личный кабинет</h3>
+                <div style="font-size: 4rem; margin: 20px 0;">👤</div>
+                <h4>Войдите в аккаунт</h4>
+                <p style="color: var(--text-muted); margin-bottom: 24px;">Для доступа к профилю и балансу</p>
+                <div class="login-buttons">
+                    <a href="/auth/google" class="btn btn-google">Войти через Google</a>
+                    <a href="/auth/yandex" class="btn btn-yandex">Войти через Яндекс</a>
+                </div>
             </div>
         </div>
 
-        <div id="loggedIn" class="profile-section" style="display:none;">
-            <h2>Профиль</h2>
-            <div id="adminBadge" class="admin-badge" style="display:none;">Администратор</div>
-            <div class="profile-info">
-                <div class="profile-avatar-large" id="userAvatar">👤</div>
-                <div class="profile-details">
-                    <h3 id="userName">Пользователь</h3>
-                    <p id="userEmail">email@example.com</p>
-                    <a href="/auth/logout" class="btn-logout">Выйти</a>
+        <div id="loggedIn" style="display: none;">
+            <div class="profile-grid">
+                <div class="profile-card">
+                    <h3>Профиль</h3>
+                    <div id="adminBadge" class="status-badge status-processing" style="display: none; margin-bottom: 16px;">Администратор</div>
+                    <div class="profile-user">
+                        <img id="userAvatar" src="https://via.placeholder.com/64" alt="Avatar">
+                        <div>
+                            <h4 id="userName">Пользователь</h4>
+                            <p id="userEmail" style="color: var(--text-muted); font-size: 0.9rem;">email@example.com</p>
+                            <a href="/auth/logout" class="btn btn-outline btn-sm" style="margin-top: 8px;">Выйти</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-card">
+                    <h3>Баланс</h3>
+                    <div class="balance-display" id="profileBalance">0 ₽</div>
+                    <div class="form-group">
+                        <input type="number" id="topupAmount" class="form-input" placeholder="Сумма пополнения (₽)" min="1" max="1000000">
+                    </div>
+                    <button id="topupBtn" class="btn btn-primary" style="width: 100%;">Пополнить баланс</button>
+                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 12px;">Демо-режим: средства зачисляются мгновенно</p>
                 </div>
             </div>
 
-            <div class="balance-section">
-                <h3>Баланс</h3>
-                <div class="balance-display-large">
-                    <span id="profileBalance">0 ₽</span>
-                </div>
-                <div class="topup-form">
-                    <input type="number" id="topupAmount" placeholder="Сумма пополнения (₽)" min="1" max="1000000">
-                    <button id="topupBtn" class="btn-primary">Пополнить баланс</button>
-                </div>
-                <p class="demo-note">Демо-режим: средства зачисляются мгновенно</p>
-            </div>
-
-            <div class="orders-section">
+            <div class="profile-card" style="margin-top: 24px;">
                 <h3>Мои заказы</h3>
                 <div id="ordersList" class="orders-list">
-                    <p class="no-orders">Заказов пока нет</p>
+                    <p style="color: var(--text-muted); text-align: center; padding: 40px;">Заказов пока нет</p>
                 </div>
             </div>
         </div>
     </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>© 2026 ScentForge. Маркетплейс мужской парфюмерии.</p>
+        </div>
+    </footer>
 
     <script src="profile.js"></script>
 </body>
