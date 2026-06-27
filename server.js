@@ -18,6 +18,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 if (isProduction) app.set('trust proxy', 1);
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
@@ -104,7 +105,12 @@ function requireAuth(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-  if (req.isAuthenticated && req.isAuthenticated() && req.user && req.user.is_admin) return next();
+  const isAuth = req.isAuthenticated && req.isAuthenticated();
+  const isAdmin = isAuth && req.user && req.user.is_admin;
+
+  if (isAdmin) return next();
+
+  console.warn(`[Admin] Denied access: Auth=${isAuth}, User=${req.user?.email || 'none'}, Admin=${!!req.user?.is_admin}`);
   res.status(403).json({ error: 'Доступ только для администратора' });
 }
 
