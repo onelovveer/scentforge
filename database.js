@@ -45,19 +45,18 @@ const db = {
     const numId = Number(id);
     return load().users.find(u => u.id === numId || u.id === id) || null;
   },
-
   getUserByGoogleId(googleId) {
     return load().users.find(u => u.google_id === googleId) || null;
   },
-
   getUserByYandexId(yandexId) {
     return load().users.find(u => u.yandex_id === yandexId) || null;
   },
-
+  getUserByEmail(email) {
+    return load().users.find(u => u.email === email.toLowerCase()) || null;
+  },
   getUserCount() {
     return load().users.length;
   },
-
   createUser({ google_id, yandex_id, email, name, avatar, is_admin }) {
     const data = load();
     const user = {
@@ -75,19 +74,19 @@ const db = {
     save(data);
     return user;
   },
-
-  updateUser(id, { name, avatar, is_admin, email }) {
+  updateUser(id, { name, avatar, is_admin, email, yandex_id, google_id }) {
     const data = load();
     const user = data.users.find(u => u.id === id);
     if (!user) return null;
     if (name !== undefined) user.name = name;
     if (avatar !== undefined) user.avatar = avatar;
     if (email !== undefined) user.email = email;
+    if (yandex_id !== undefined) user.yandex_id = yandex_id;
+    if (google_id !== undefined) user.google_id = google_id;
     if (is_admin !== undefined) user.is_admin = is_admin ? 1 : 0;
     save(data);
     return user;
   },
-
   updateBalance(userId, delta) {
     const data = load();
     const numId = Number(userId);
@@ -97,7 +96,6 @@ const db = {
     save(data);
     return user;
   },
-
   addBalanceTransaction(userId, amount, type, orderId = null) {
     const data = load();
     const tx = {
@@ -111,7 +109,6 @@ const db = {
     data.balance_transactions.push(tx);
     save(data);
   },
-
   checkoutOrder({ user_id, user_email, user_name, items, total }) {
     const data = load();
     const numId = Number(user_id);
@@ -123,7 +120,6 @@ const db = {
         balance: user.balance
       };
     }
-
     user.balance -= total;
 
     const order = {
@@ -148,7 +144,6 @@ const db = {
     save(data);
     return { order, balance: user.balance };
   },
-
   createOrder({ user_id, user_email, user_name, items, total }) {
     const data = load();
     const order = {
@@ -165,22 +160,18 @@ const db = {
     save(data);
     return order;
   },
-
   getOrderById(id) {
     return load().orders.find(o => o.id === parseInt(id)) || null;
   },
-
   getOrdersByUserId(userId) {
     const numId = Number(userId);
     return load().orders
       .filter(o => o.user_id === numId || o.user_id === userId)
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   },
-
   getAllOrders() {
     return load().orders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   },
-
   getStats() {
     const data = load();
     return {
@@ -189,12 +180,10 @@ const db = {
       totalUsers: data.users.length
     };
   },
-
   updateOrderStatus(id, status) {
     const data = load();
     const order = data.orders.find(o => o.id === parseInt(id));
     if (!order) return null;
-
     const prevStatus = order.status;
     order.status = status;
 
@@ -216,17 +205,14 @@ const db = {
     save(data);
     return order;
   },
-
   // PRODUCT CRUD
   getAllProducts() {
     return load().products || [];
   },
-
   getProductById(id) {
     const numId = parseInt(id);
     return load().products.find(p => p.id === numId) || null;
   },
-
   createProduct(productData) {
     const data = load();
     const product = {
@@ -238,13 +224,11 @@ const db = {
     save(data);
     return product;
   },
-
   updateProduct(id, productData) {
     const data = load();
     const numId = parseInt(id);
     const index = data.products.findIndex(p => p.id === numId);
     if (index === -1) return null;
-
     data.products[index] = {
       ...data.products[index],
       ...productData,
@@ -253,13 +237,11 @@ const db = {
     save(data);
     return data.products[index];
   },
-
   deleteProduct(id) {
     const data = load();
     const numId = parseInt(id);
     const index = data.products.findIndex(p => p.id === numId);
     if (index === -1) return false;
-
     data.products.splice(index, 1);
     save(data);
     return true;
