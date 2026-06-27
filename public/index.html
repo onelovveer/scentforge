@@ -7,82 +7,86 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-container">
+    <header class="header">
+        <div class="header-inner container">
             <div class="logo">
                 <a href="index.html"><span>Scent</span><span>Forge</span></a>
             </div>
-            <ul class="nav-menu">
-                <li><a href="index.html">Каталог</a></li>
-                <li><a href="cart.html">Корзина</a></li>
-                <li><a href="profile.html">Профиль</a></li>
-                <li><a href="admin.html">Админ</a></li>
-                <li><a href="#">амоCRM</a></li>
-            </ul>
-            <div class="nav-right">
-                <div class="balance-display">
-                    <span id="balanceAmount">0 ₽</span>
-                </div>
-                <a href="cart.html" class="cart-icon">
+            <nav class="nav">
+                <a href="index.html">Каталог</a>
+                <a href="cart.html">Корзина</a>
+                <a href="profile.html">Профиль</a>
+                <a href="admin.html">Админ</a>
+                <a href="#">амоCRM</a>
+            </nav>
+            <div class="header-actions">
+                <div class="balance-badge" id="balanceAmount">0 ₽</div>
+                <a href="cart.html" class="cart-btn">
                     🛒
                     <span class="cart-count" id="cartCount">0</span>
                 </a>
-                <button id="loginBtn" class="btn-login">[Войти через Google](#)</button>
-                <button id="yandexLoginBtn" class="btn-login" style="display:none;">[Войти через Яндекс](/auth/yandex)</button>
+                <button id="loginBtn" class="btn btn-ghost">Войти через Google</button>
             </div>
         </div>
-    </nav>
+    </header>
 
     <main>
         <section class="hero">
-            <div class="hero-content">
-                <h1>Premium Men's Fragrance</h1>
-                <p class="hero-subtitle">Аромат — вашневидимый аксессуар</p>
-                <p class="hero-description">Эксклюзивная коллекция мужской парфюмерии. От свежих морских до глубоких восточных ароматов.</p>
-                <a href="#catalog" class="btn-primary">Смотреть каталог</a>
+            <div class="container">
+                <span class="hero-tag">Premium Men's Fragrance</span>
+                <h1>Аромат — ваш невидимый аксессуар</h1>
+                <p>Эксклюзивная коллекция мужской парфюмерии. От свежих морских до глубоких восточных ароматов.</p>
+                <a href="#catalog" class="btn btn-primary">Смотреть каталог</a>
             </div>
         </section>
 
-        <section id="catalog" class="catalog-section">
-            <h2>Каталог</h2>
-            <p class="catalog-subtitle">Dior, Chanel, Tom Ford, Armani и другие бренды</p>
-            <div class="products-grid" id="productsGrid">
-                <!-- Products will be loaded here -->
+        <section id="catalog" class="section">
+            <div class="container">
+                <h2 class="section-title">Каталог</h2>
+                <p class="section-subtitle">Dior, Chanel, Tom Ford, Armani и другие бренды</p>
+                <div class="products-grid" id="productsGrid">
+                    <!-- Товары загрузятся через JavaScript -->
+                </div>
             </div>
         </section>
     </main>
 
     <footer class="footer">
-        <p>© 2026 ScentForge. Маркетплейс мужской парфюмерии.</p>
+        <div class="container">
+            <p>© 2026 ScentForge. Маркетплейс мужской парфюмерии.</p>
+        </div>
     </footer>
 
-    <!-- Login Modal -->
-    <div id="loginModal" class="modal">
-        <div class="modal-content">
+    <!-- Модальное окно входа -->
+    <div id="loginModal" class="modal-overlay">
+        <div class="modal">
             <span class="close">&times;</span>
             <h2>Войдите в аккаунт</h2>
             <p>Для добавления в корзину и оформления заказа необходима авторизация</p>
             <div class="login-buttons">
-                <a href="/auth/google" class="btn-google">🔐 Войти через Google</a>
-                <a href="/auth/yandex" class="btn-yandex">🔐 Войти через Яндекс</a>
+                <a href="/auth/google" class="btn btn-google">🔐 Войти через Google</a>
+                <a href="/auth/yandex" class="btn btn-yandex">🔐 Войти через Яндекс</a>
             </div>
         </div>
     </div>
 
-    <!-- AI Chat Widget -->
-    <div id="aiChatWidget" class="ai-chat-widget">
-        <div class="ai-chat-header">
-            <span>✨ ИИ-консультант</span>
-            <button id="aiChatClose" class="ai-chat-close">×</button>
-        </div>
-        <div class="ai-chat-messages" id="aiChatMessages">
-            <div class="ai-message">
-                Привет! Я парфюмерный консультант ScentForge. Расскажите, куда идёте или какое настроение хотите — подберу аромат из каталога. Можно спросить о нотах, стойкости или сравнить ароматы.
+    <!-- ИИ-консультант -->
+    <div id="aiChatWidget" class="ai-widget">
+        <button id="aiChatToggle" class="ai-toggle">💬</button>
+        <div class="ai-panel" id="aiChatPanel">
+            <div class="ai-header">
+                <h4>✨ ИИ-консультант</h4>
+                <button id="aiChatClose" class="ai-close">×</button>
             </div>
-        </div>
-        <div class="ai-chat-input">
-            <input type="text" id="aiChatInput" placeholder="Спросите об ароматах...">
-            <button id="aiChatSend">➤</button>
+            <div class="ai-messages" id="aiChatMessages">
+                <div class="ai-msg ai-msg-bot">
+                    Привет! Я парфюмерный консультант ScentForge. Расскажите, куда идёте или какое настроение хотите — подберу аромат из каталога. Можно спросить о нотах, стойкости или сравнить ароматы.
+                </div>
+            </div>
+            <div class="ai-input-area">
+                <input type="text" id="aiChatInput" class="ai-input" placeholder="Спросите об ароматах...">
+                <button id="aiChatSend" class="ai-send">➤</button>
+            </div>
         </div>
     </div>
 
