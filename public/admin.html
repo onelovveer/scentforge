@@ -1,10 +1,66 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+admin-panel-ai-desc-7249302269991033313
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Управление товарами — ScentForge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css?v=4">
+  <style>
+    #product-modal.open { display: flex !important; z-index: 9999; }
+    .admin-container { padding-top: 40px; padding-bottom: 80px; }
+    .admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+    .product-thumb { width: 40px; height: 40px; object-fit: contain; background: #fff; border-radius: 4px; }
+    .actions-cell { display: flex; gap: 8px; }
+
+    /* Modal Styles */
+    .modal-content {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+    }
+    .modal-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .full-width { grid-column: span 2; }
+
+    .ai-gen-btn {
+      margin-top: 8px;
+      width: 100%;
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity 0.2s;
+    }
+    .ai-gen-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    textarea.form-input { min-height: 100px; resize: vertical; }
+  </style>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Управление товарами — ScentForge</title>
     <link rel="stylesheet" href="styles.css">
+main
 </head>
 <body>
     <header class="header">
