@@ -1,31 +1,53 @@
 let currentUser = null;
 let googleAuthReady = false;
+let authPromise = null;
 
 async function initAuth() {
-  if (!SF.isServer) {
-    currentUser = null;
-    googleAuthReady = false;
-    updateHeaderUI();
-    showFileModeWarning();
-    return;
-  }
+  if (authPromise) return authPromise;
 
-  try {
-    const [userRes, statusRes] = await Promise.all([
-      SF.fetch('/api/user'),
-      SF.fetch('/api/auth/status')
-    ]);
-    const userData = await userRes.json();
-    const statusData = await statusRes.json();
-    currentUser = userData.user;
-    googleAuthReady = statusData.configured;
-    updateHeaderUI();
-    updateAuthBanner(statusData);
-  } catch {
-    currentUser = null;
-    googleAuthReady = false;
-    updateHeaderUI();
-  }
+  authPromise = (async () => {
+    if (!SF.isServer) {
+      currentUser = null;
+      googleAuthReady = false;
+      updateHeaderUI();
+      showFileModeWarning();
+      return null;
+    }
+
+    try {
+      const [userRes, statusRes] = await Promise.all([
+        SF.fetch('/api/user'),
+        SF.fetch('/api/auth/status')
+      ]).catch(err => {
+        console.error('[Auth] Fetch failed:', err);
+        throw err;
+      });
+
+      if (!userRes.ok || !statusRes.ok) {
+        throw new Error(`HTTP error! User: ${userRes.status}, Status: ${statusRes.status}`);
+      }
+
+      const userData = await userRes.json();
+      const statusData = await statusRes.json();
+
+      currentUser = userData.user;
+      googleAuthReady = statusData.configured;
+
+      console.log('[Auth] Logged in as:', currentUser ? `${currentUser.name} (Admin: ${!!currentUser.is_admin})` : 'Guest');
+
+      updateHeaderUI();
+      updateAuthBanner(statusData);
+      return currentUser;
+    } catch (err) {
+      console.error('[Auth] Initialization failed:', err);
+      currentUser = null;
+      googleAuthReady = false;
+      updateHeaderUI();
+      return null;
+    }
+  })();
+
+  return authPromise;
 }
 
 function showFileModeWarning() {

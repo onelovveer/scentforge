@@ -61,7 +61,8 @@ if (isGoogleConfigured()) {
     let user = db.getUserByGoogleId(profile.id);
     const adminGoogleId = process.env.ADMIN_GOOGLE_ID;
     const userCount = db.getUserCount();
-    const isAdmin = (adminGoogleId && profile.id === adminGoogleId) || (!adminGoogleId && userCount === 0);
+    // Logic: First user ever is admin, OR Google ID matches env, OR user already has is_admin flag in DB
+    const isAdmin = (adminGoogleId && profile.id === adminGoogleId) || (!adminGoogleId && userCount === 0) || (user && user.is_admin);
 
     if (!user) {
       user = db.createUser({
@@ -87,7 +88,7 @@ if (isGoogleConfigured()) {
   }));
 }
 
-app.get('/admin.html', requireAdmin, (req, res) => {
+app.get('/admin.html', (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'admin.html'));
 });
 

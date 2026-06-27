@@ -1,10 +1,20 @@
 document.addEventListener('DOMContentLoaded', async () => {
+  console.log('[Admin] Initializing...');
   const user = await initAuth();
-  if (!user || !user.is_admin) {
+
+  if (!user) {
+    console.warn('[Admin] User not authenticated, redirecting to home');
     window.location.href = '/';
     return;
   }
 
+  if (!user.is_admin) {
+    console.warn('[Admin] User is not an admin, redirecting to home');
+    window.location.href = '/';
+    return;
+  }
+
+  console.log('[Admin] Access granted for:', user.email);
   loadAdminProducts();
 
   const crmLink = document.getElementById('crm-link');
