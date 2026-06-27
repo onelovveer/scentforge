@@ -19,7 +19,6 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 if (isProduction) app.set('trust proxy', 1);
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
@@ -47,13 +46,12 @@ const publicBaseUrl = () => {
   return `http://localhost:${PORT}`;
 };
 
+// === GOOGLE CONFIG ===
 let GOOGLE_CALLBACK = process.env.GOOGLE_CALLBACK_URL || `${publicBaseUrl()}/auth/google/callback`;
 if (isProduction && /localhost|127\.0\.0\.1/i.test(GOOGLE_CALLBACK)) {
   GOOGLE_CALLBACK = `${publicBaseUrl()}/auth/google/callback`;
 }
-
 const isGoogleConfigured = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
-const isYandexConfigured = () => !!(process.env.YANDEX_CLIENT_ID && process.env.YANDEX_CLIENT_SECRET);
 
 if (isGoogleConfigured()) {
   passport.use(new GoogleStrategy({
@@ -62,19 +60,25 @@ if (isGoogleConfigured()) {
     callbackURL: GOOGLE_CALLBACK
   }, (accessToken, refreshToken, profile, done) => {
     let user = db.getUserByGoogleId(profile.id);
-    const adminId = process.env.ADMIN_GOOGLE_ID || process.env.ADMIN_YANDEX_ID;
+    const adminGoogleId = process.env.ADMIN_GOOGLE_ID;
     const userCount = db.getUserCount();
-    const isAdmin = (adminId && profile.id === adminId) || (!adminId && userCount === 0) || (user && user.is_admin);
+    const isAdmin = (adminGoogleId && profile.id === adminGoogleId) || 
+                    (!adminGoogleId && !process.env.ADMIN_YANDEX_ID && userCount === 0) || 
+                    (user && user.is_admin);
 
     if (!user) {
       user = db.createUser({
         google_id: profile.id,
+        yandex_id: null,
         email: profile.emails[0].value,
         name: profile.displayName,
         avatar: profile.photos?.[0]?.value || null,
         is_admin: isAdmin
       });
       console.log(`\n  ✓ Новый пользователь (Google): ${user.name} (${user.email})`);
+      console.log(`    Google ID: ${profile.id}`);
+      if (isAdmin) console.log('    Назначен администратором (первый пользователь)\n');
+      else console.log(`    Для назначения админом добавьте в .env: ADMIN_GOOGLE_ID=${profile.id}\n`);
     } else {
       user = db.updateUser(user.id, {
         email: profile.emails?.[0]?.value || user.email,
@@ -87,31 +91,55 @@ if (isGoogleConfigured()) {
   }));
 }
 
+// === YANDEX CONFIG ===
+let YANDEX_CALLBACK = process.env.YANDEX_CALLBACK_URL || `${publicBaseUrl()}/auth/yandex/callback`;
+if (isProduction && /localhost|127\.0\.0\.1/i.test(YANDEX_CALLBACK)) {
+  YANDEX_CALLBACK = `${publicBaseUrl()}/auth/yandex/callback`;
+}
+const isYandexConfigured = () => !!(process.env.YANDEX_CLIENT_ID && process.env.YANDEX_CLIENT_SECRET);
+
 if (isYandexConfigured()) {
   passport.use(new YandexStrategy({
     clientID: process.env.YANDEX_CLIENT_ID,
     clientSecret: process.env.YANDEX_CLIENT_SECRET,
-    callbackURL: process.env.YANDEX_CALLBACK_URL || `${publicBaseUrl()}/auth/yandex/callback`
+    callbackURL: YANDEX_CALLBACK
   }, (accessToken, refreshToken, profile, done) => {
     let user = db.getUserByYandexId(profile.id);
-    const adminId = process.env.ADMIN_YANDEX_ID || process.env.ADMIN_GOOGLE_ID;
+    
+    // Если пользователь не найден по yandex_id, ищем по email
+    if (!user && profile.emails && profile.emails[0]) {
+      user = db.getUserByEmail(profile.emails[0].value);
+    }
+    
+    const adminYandexId = process.env.ADMIN_YANDEX_ID;
     const userCount = db.getUserCount();
-    const isAdmin = (adminId && profile.id === adminId) || (!adminId && userCount === 0) || (user && user.is_admin);
+    const isAdmin = (adminYandexId && profile.id === adminYandexId) || 
+                    (!process.env.ADMIN_GOOGLE_ID && !adminYandexId && userCount === 0) || 
+                    (user && user.is_admin);
+
+    const yandexEmail = profile.emails?.[0]?.value || null;
+    const yandexName = profile.displayName || profile.username || 'Пользователь Яндекса';
+    const yandexAvatar = profile.photos?.[0]?.value || null;
 
     if (!user) {
       user = db.createUser({
+        google_id: null,
         yandex_id: profile.id,
-        email: profile.emails[0].value,
-        name: profile.displayName,
-        avatar: profile.photos?.[0]?.value || null,
+        email: yandexEmail,
+        name: yandexName,
+        avatar: yandexAvatar,
         is_admin: isAdmin
       });
-      console.log(`\n  ✓ Новый пользователь (Yandex): ${user.name} (${user.email})`);
+      console.log(`\n  ✓ Новый пользователь (Яндекс): ${user.name} (${yandexEmail || 'без email'})`);
+      console.log(`    Yandex ID: ${profile.id}`);
+      if (isAdmin) console.log('    Назначен администратором (первый пользователь)\n');
+      else console.log(`    Для назначения админом добавьте в .env: ADMIN_YANDEX_ID=${profile.id}\n`);
     } else {
       user = db.updateUser(user.id, {
-        email: profile.emails?.[0]?.value || user.email,
-        name: profile.displayName,
-        avatar: profile.photos?.[0]?.value || user.avatar,
+        yandex_id: profile.id,
+        email: yandexEmail || user.email,
+        name: yandexName,
+        avatar: yandexAvatar || user.avatar,
         is_admin: isAdmin || user.is_admin
       });
     }
@@ -135,12 +163,7 @@ function requireAuth(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-  const isAuth = req.isAuthenticated && req.isAuthenticated();
-  const isAdmin = isAuth && req.user && req.user.is_admin;
-
-  if (isAdmin) return next();
-
-  console.warn(`[Admin] Denied access: Auth=${isAuth}, User=${req.user?.email || 'none'}, Admin=${!!req.user?.is_admin}`);
+  if (req.isAuthenticated && req.isAuthenticated() && req.user && req.user.is_admin) return next();
   res.status(403).json({ error: 'Доступ только для администратора' });
 }
 
@@ -169,30 +192,25 @@ async function sendOrderEmail(order, customerEmail, customerName) {
     console.log('[Email] Нет email клиента для заказа #' + order.id);
     return { sent: false, to: null, reason: 'no_email' };
   }
-
   if (!process.env.SMTP_USER) {
     console.log('[Email] SMTP не настроен. Заказ #' + order.id + ' — письмо на ' + emailTo + ' не отправлено.');
     return { sent: false, to: emailTo, reason: 'smtp_not_configured' };
   }
-
   const items = JSON.parse(order.items);
   const itemsList = items.map(i => `• ${i.name} (${i.brand}) × ${i.qty} — ${(i.price * i.qty).toLocaleString('ru-RU')} ₽`).join('\n');
   const name = customerName || order.user_name || 'клиент';
-
   const mailOptions = {
     from: `"ScentForge" <${process.env.SMTP_USER}>`,
     to: emailTo,
     subject: `Заказ #${order.id} оформлен — ScentForge`,
     text: `Здравствуйте, ${name}!\n\nВаш заказ #${order.id} успешно оформлен.\n\nСостав заказа:\n${itemsList}\n\nИтого: ${order.total.toLocaleString('ru-RU')} ₽\n\nСпасибо за покупку!\nScentForge — мужская парфюмерия`
   };
-
   const adminMail = {
     from: `"ScentForge" <${process.env.SMTP_USER}>`,
     to: process.env.ADMIN_EMAIL || process.env.SMTP_USER,
     subject: `Новый заказ #${order.id} — ${name}`,
     text: `Новый заказ от ${name} (${emailTo})\n\n${itemsList}\n\nИтого: ${order.total.toLocaleString('ru-RU')} ₽`
   };
-
   try {
     const clientInfo = await mailTransporter.sendMail(mailOptions);
     await mailTransporter.sendMail(adminMail);
@@ -224,30 +242,42 @@ app.get('/api/auth/status', (req, res) => {
     },
     yandex: {
       configured: isYandexConfigured(),
-      callbackUrl: process.env.YANDEX_CALLBACK_URL || `${publicBaseUrl()}/auth/yandex/callback`
+      callbackUrl: YANDEX_CALLBACK
     },
     loggedIn: !!req.user
   });
 });
 
 app.get('/auth/google', (req, res, next) => {
-  if (!isGoogleConfigured()) return res.redirect('/setup.html');
+  if (!isGoogleConfigured()) {
+    return res.redirect('/setup.html');
+  }
   passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
 
 app.get('/auth/google/callback', (req, res, next) => {
-  passport.authenticate('google', { failureRedirect: '/?error=auth_failed' })(req, res, () => {
+  if (!isGoogleConfigured()) {
+    return res.redirect('/setup.html');
+  }
+  passport.authenticate('google', { failureRedirect: '/?error=auth_failed' })(req, res, (err) => {
+    if (err) return res.redirect('/?error=auth_failed');
     res.redirect('/?login=success');
   });
 });
 
 app.get('/auth/yandex', (req, res, next) => {
-  if (!isYandexConfigured()) return res.redirect('/setup.html');
+  if (!isYandexConfigured()) {
+    return res.redirect('/?error=yandex_not_configured');
+  }
   passport.authenticate('yandex')(req, res, next);
 });
 
 app.get('/auth/yandex/callback', (req, res, next) => {
-  passport.authenticate('yandex', { failureRedirect: '/?error=auth_failed' })(req, res, () => {
+  if (!isYandexConfigured()) {
+    return res.redirect('/?error=yandex_not_configured');
+  }
+  passport.authenticate('yandex', { failureRedirect: '/?error=auth_failed' })(req, res, (err) => {
+    if (err) return res.redirect('/?error=auth_failed');
     res.redirect('/?login=success');
   });
 });
@@ -317,10 +347,8 @@ app.post('/api/balance/topup', requireAuth, (req, res) => {
   if (!amount || amount <= 0 || amount > 1000000) {
     return res.status(400).json({ error: 'Некорректная сумма (от 1 до 1 000 000 ₽)' });
   }
-
   db.updateBalance(req.user.id, amount);
   db.addBalanceTransaction(req.user.id, amount, 'topup');
-
   const user = db.getUserById(req.user.id);
   if (req.user) req.user.balance = user.balance;
   res.json({ balance: user.balance, message: `Баланс пополнен на ${amount.toLocaleString('ru-RU')} ₽` });
@@ -330,7 +358,6 @@ function validateOrderItems(rawItems) {
   if (!rawItems || !Array.isArray(rawItems) || rawItems.length === 0) {
     return { error: 'Корзина пуста' };
   }
-
   const merged = new Map();
   for (const item of rawItems) {
     const id = parseInt(item.id, 10);
@@ -338,7 +365,6 @@ function validateOrderItems(rawItems) {
     if (!id || !qty || qty < 1 || qty > 99) {
       return { error: 'Некорректное количество товара' };
     }
-
     const product = db.getProductById(id);
     if (!product) {
       return { error: `Товар «${item.name || id}» больше не доступен` };
@@ -360,7 +386,6 @@ function validateOrderItems(rawItems) {
       });
     }
   }
-
   const items = Array.from(merged.values());
   const total = items.reduce((sum, i) => sum + i.price * i.qty, 0);
   return { items, total };
@@ -372,20 +397,17 @@ app.post('/api/orders', requireAuth, async (req, res) => {
   if (validated.error) {
     return res.status(400).json({ error: validated.error });
   }
-
   const { items, total } = validated;
   const user = db.getUserById(req.user.id);
   if (!user) {
     return res.status(400).json({ error: 'Пользователь не найден' });
   }
-
   const customerEmail = (user.email || '').trim().toLowerCase();
   if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
     return res.status(400).json({
-      error: 'Не найдена почта Google в профиле. Выйдите из аккаунта и войдите снова через Google.'
+      error: 'Не найдена почта в профиле. Выйдите из аккаунта и войдите снова.'
     });
   }
-
   const result = db.checkoutOrder({
     user_id: req.user.id,
     user_email: customerEmail,
@@ -393,23 +415,18 @@ app.post('/api/orders', requireAuth, async (req, res) => {
     items,
     total
   });
-
   if (result.error) {
     return res.status(400).json({ error: result.error, balance: result.balance });
   }
-
   const { order, balance } = result;
   if (req.user) req.user.balance = balance;
-
   const crmResult = await sendOrderToCRM(order, { id: user.id, name: user.name, email: customerEmail });
-
   res.json({
     order: { id: order.id, total: order.total, items, created_at: order.created_at },
     balance,
     email: { sent: false, to: customerEmail, pending: !!process.env.SMTP_USER },
     crm: crmResult
   });
-
   sendOrderEmail(order, customerEmail, user.name).catch(err => {
     console.error('[Email] Фоновая отправка заказа #' + order.id + ':', err.message);
   });
@@ -438,7 +455,6 @@ app.get('/api/ai/status', (req, res) => {
 app.post('/api/ai/chat', async (req, res) => {
   const { message, history = [] } = req.body;
   if (!message) return res.status(400).json({ error: 'Сообщение пустое' });
-
   try {
     const result = await getAIResponse(message, history);
     res.json(result);
@@ -453,22 +469,28 @@ app.use((req, res) => {
     const file = path.join(PUBLIC_DIR, req.path);
     if (fs.existsSync(file)) return res.sendFile(file);
   }
-  res.status(404).send('Страница не найдена. <a href="/">На главную</a>');
+  res.status(404).send('Страница не найдена.<a href="/">На главную</a>');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
   bootstrapCRM();
-
   console.log('\n  ═══════════════════════════════════════');
   const baseUrl = publicBaseUrl();
   console.log('  ScentForge: ' + baseUrl);
   console.log('  ═══════════════════════════════════════\n');
-
+  
   if (isGoogleConfigured()) {
     console.log('  ✓ Google OAuth подключён');
     console.log('    Callback URL: ' + GOOGLE_CALLBACK);
   } else {
     console.log('  ⚠ Google OAuth не настроен → /setup.html');
+  }
+  
+  if (isYandexConfigured()) {
+    console.log('  ✓ Yandex OAuth подключён');
+    console.log('    Callback URL: ' + YANDEX_CALLBACK);
+  } else {
+    console.log('  ⚠ Yandex OAuth не настроен — добавьте YANDEX_CLIENT_ID и YANDEX_CLIENT_SECRET');
   }
 
   const ai = getAIStatus();
