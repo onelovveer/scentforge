@@ -1,259 +1,162 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Настройка Google — ScentForge</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css">
-  <style>
-    .setup-page { padding: 48px 0 80px; max-width: 720px; margin: 0 auto; }
-    .setup-page h1 { font-family: var(--font-display); font-size: 2.2rem; margin-bottom: 12px; }
-    .setup-page .lead { color: var(--text-muted); margin-bottom: 32px; font-size: 1.05rem; }
-    .setup-step {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-      margin-bottom: 16px;
-    }
-    .setup-step h3 {
-      font-family: var(--font-display);
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .step-num {
-      background: var(--gold);
-      color: var(--bg-dark);
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.85rem;
-      font-weight: 700;
-      flex-shrink: 0;
-    }
-    .setup-step p, .setup-step li { color: var(--text-muted); line-height: 1.7; }
-    .setup-step ul { margin: 12px 0 0 20px; }
-    .code-block {
-      background: var(--bg-elevated);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px 16px;
-      font-family: monospace;
-      font-size: 0.85rem;
-      color: var(--gold-light);
-      margin: 12px 0;
-      word-break: break-all;
-    }
-    .status-box {
-      padding: 16px 20px;
-      border-radius: var(--radius);
-      margin-bottom: 24px;
-      font-weight: 500;
-    }
-    .status-ok { background: rgba(74, 222, 128, 0.1); border: 1px solid var(--success); color: var(--success); }
-    .status-warn { background: rgba(201, 169, 98, 0.1); border: 1px solid var(--gold); color: var(--gold); }
-    .status-err { background: rgba(248, 113, 113, 0.1); border: 1px solid var(--danger); color: var(--danger); }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройка Google — ScentForge</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="header">
-    <div class="container header-inner">
-      <a href="index.html" class="logo">Scent<span>Forge</span></a>
-      <nav class="nav">
-        <a href="index.html">Каталог</a>
-        <a href="index.html" id="back-link">На главную</a>
-      </nav>
-    </div>
-  </header>
+    <header class="header">
+        <div class="header-inner container">
+            <div class="logo">
+                <a href="index.html"><span>Scent</span><span>Forge</span></a>
+            </div>
+            <nav class="nav">
+                <a href="index.html">Каталог</a>
+            </nav>
+            <div class="header-actions">
+                <a href="index.html" class="btn btn-ghost btn-sm">На главную</a>
+            </div>
+        </div>
+    </header>
 
-  <div class="container setup-page">
-    <h1>Подключение Google и Яндекс OAuth</h1>
-    <p class="lead">Чтобы пользователи могли входить через соцсети, создайте OAuth-приложения и добавьте ключи в файл <code>.env</code>.</p>
+    <main class="container" style="padding: 60px 24px; max-width: 800px;">
+        <div class="page-header">
+            <h1 class="section-title">Подключение Google и Яндекс OAuth</h1>
+            <p class="section-subtitle">Чтобы пользователи могли входить через соцсети, создайте OAuth-приложения и добавьте ключи в файл `.env`.</p>
+        </div>
 
-    <div id="auth-status-google" class="status-box status-warn">Google OAuth: Проверка...</div>
-    <div id="auth-status-yandex" class="status-box status-warn">Яндекс OAuth: Проверка...</div>
+        <div class="profile-card" style="margin-bottom: 24px;">
+            <h3>Статус настройки:</h3>
+            <div style="margin-top: 16px;">
+                <p id="googleStatus">Google OAuth: <span style="color: var(--gold);">Проверка...</span></p>
+                <p id="yandexStatus">Яндекс OAuth: <span style="color: var(--gold);">Проверка...</span></p>
+            </div>
+        </div>
 
-    <div class="setup-step">
-      <h3><span class="step-num">1</span> Установите Node.js</h3>
-      <p>Скачайте и установите с <a href="https://nodejs.org" target="_blank">nodejs.org</a> (версия LTS). После установки перезапустите компьютер.</p>
-    </div>
+        <div class="profile-card">
+            <h3>1 Установите Node.js</h3>
+            <p>Скачайте и установите с <a href="https://nodejs.org" target="_blank">nodejs.org</a> (версия LTS). После установки перезапустите компьютер.</p>
+        </div>
 
-    <div class="setup-step">
-      <h3><span class="step-num">2</span> Запустите сервер</h3>
-      <p>Дважды щёлкните <strong>start.bat</strong> в папке проекта или выполните в терминале:</p>
-      <div class="code-block">npm install<br>npm start</div>
-      <p>Сайт должен открываться по адресу <strong>http://localhost:3000</strong> (не через файл index.html).</p>
-    </div>
+        <div class="profile-card" style="margin-top: 24px;">
+            <h3>2 Запустите сервер</h3>
+            <p>Дважды щёлкните <code>start.bat</code> в папке проекта или выполните в терминале:</p>
+            <pre style="background: var(--bg-elevated); padding: 12px; border-radius: 8px; margin: 12px 0; overflow-x: auto;">npm install
+npm start</pre>
+            <p>Сайт должен открываться по адресу <strong>http://localhost:3000</strong> (не через файл index.html).</p>
+        </div>
 
-    <div class="setup-step">
-      <h3><span class="step-num">3</span> Создайте OAuth в Google Cloud</h3>
-      <ul>
-        <li>Откройте <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a></li>
-        <li><strong>Authorized redirect URIs:</strong></li>
-      </ul>
-      <div class="code-block" id="callback-url-google">http://localhost:3000/auth/google/callback</div>
-      <p>В <code>.env</code>:</p>
-      <div class="code-block">GOOGLE_CLIENT_ID=...<br>GOOGLE_CLIENT_SECRET=...</div>
-    </div>
+        <div class="profile-card" style="margin-top: 24px;">
+            <h3>3 Создайте OAuth в Google Cloud</h3>
+            <ol style="margin-left: 20px; margin-top: 12px;">
+                <li>Откройте <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a></li>
+                <li>Создайте OAuth 2.0 Client ID</li>
+                <li>Authorized redirect URIs: <code>http://localhost:3000/auth/google/callback</code></li>
+            </ol>
+            <p style="margin-top: 12px;">В <code>.env</code>:</p>
+            <pre style="background: var(--bg-elevated); padding: 12px; border-radius: 8px; margin: 12px 0; overflow-x: auto;">GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...</pre>
+        </div>
 
-    <div class="setup-step">
-      <h3><span class="step-num">4</span> Создайте OAuth в Яндекс ID</h3>
-      <ul>
-        <li>Откройте <a href="https://oauth.yandex.ru" target="_blank">oauth.yandex.ru</a></li>
-        <li><strong>Создать приложение</strong></li>
-        <li>Платформы: <strong>Веб-сервисы</strong></li>
-        <li><strong>Redirect URI:</strong></li>
-      </ul>
-      <div class="code-block" id="callback-url-yandex">http://localhost:3000/auth/yandex/callback</div>
-      <p>Доступы: <strong>Яндекс ID (Почта, Имя, Фамилия, Аватар)</strong></p>
-      <p>В <code>.env</code>:</p>
-      <div class="code-block">YANDEX_CLIENT_ID=...<br>YANDEX_CLIENT_SECRET=...</div>
-    </div>
+        <div class="profile-card" style="margin-top: 24px;">
+            <h3>4 Создайте OAuth в Яндекс ID</h3>
+            <ol style="margin-left: 20px; margin-top: 12px;">
+                <li>Откройте <a href="https://oauth.yandex.ru" target="_blank">oauth.yandex.ru</a></li>
+                <li>Создать приложение</li>
+                <li>Платформы: <strong>Веб-сервисы</strong></li>
+                <li>Redirect URI: <code>http://localhost:3000/auth/yandex/callback</code></li>
+                <li>Доступы: <strong>Яндекс ID</strong> (Почта, Имя, Фамилия, Аватар)</li>
+            </ol>
+            <p style="margin-top: 12px;">В <code>.env</code>:</p>
+            <pre style="background: var(--bg-elevated); padding: 12px; border-radius: 8px; margin: 12px 0; overflow-x: auto;">YANDEX_CLIENT_ID=...
+YANDEX_CLIENT_SECRET=...</pre>
+        </div>
 
-    <div class="setup-step">
-      <h3><span class="step-num">5</span> Перезапустите сервер</h3>
-      <p>Остановите сервер (Ctrl+C) и снова запустите <code>npm start</code> или <code>start.bat</code>.</p>
-      <p style="margin-top:12px">После этого кнопка «Войти через Google» заработает. Первый вошедший пользователь автоматически станет администратором.</p>
-    </div>
+        <div class="profile-card" style="margin-top: 24px;">
+            <h3>5 Перезапустите сервер</h3>
+            <p>Остановите сервер (Ctrl+C) и снова запустите <code>npm start</code> или <code>start.bat</code>.</p>
+            <p style="margin-top: 12px;"><strong>После этого кнопка «Войти через Google» заработает. Первый вошедший пользователь автоматически станет администратором.</strong></p>
+        </div>
 
-    <div class="setup-step">
-      <h3><span class="step-num">6</span> amoCRM (внешняя CRM)</h3>
-      <p>Каждый заказ автоматически создаёт <strong>сделку</strong> в amoCRM с контактом клиента и составом заказа.</p>
-      <ul>
-        <li>Зарегистрируйтесь на <a href="https://www.amocrm.ru" target="_blank">amocrm.ru</a></li>
-        <li>Откройте <strong>amoМаркет → Создать интеграцию → Внешняя интеграция</strong></li>
-        <li>Скопируйте <strong>долгосрочный токен</strong> (Access token)</li>
-        <li>Поддомен — часть адреса: <code>https://<b>company</b>.amocrm.ru</code> → <code>company</code></li>
-      </ul>
-      <p>Добавьте в <code>.env</code> или Render → Environment:</p>
-      <div class="code-block">CRM_PROVIDER=amocrm<br>AMOCRM_SUBDOMAIN=company<br>AMOCRM_ACCESS_TOKEN=ваш-токен<br>AMOCRM_PIPELINE_ID=123456</div>
-      <p style="margin-top:12px"><strong>AMOCRM_PIPELINE_ID</strong> — ID воронки (необязательно). Найти: Настройки → Воронки → в URL будет <code>/pipeline/123456</code></p>
-      <p>Админ магазина: меню <strong>«CRM»</strong> → откроется воронка <strong>ScentForge</strong> (только «Новый заказ», без лишних этапов).</p>
-      <p style="margin-top:8px;font-size:0.85rem;color:var(--text-muted)">Старая воронка amoCRM можно скрыть: Настройки → Воронки → отключить ненужную.</p>
-    </div>
+        <div class="profile-card" style="margin-top: 24px;">
+            <h3>6 amoCRM (внешняя CRM)</h3>
+            <p>Каждый заказ автоматически создаёт сделку в amoCRM с контактом клиента и составом заказа.</p>
+            <ol style="margin-left: 20px; margin-top: 12px;">
+                <li>Зарегистрируйтесь на <a href="https://www.amocrm.ru" target="_blank">amocrm.ru</a></li>
+                <li>Откройте amoМаркет → Создать интеграцию → Внешняя интеграция</li>
+                <li>Скопируйте долгосрочный токен (Access token)</li>
+                <li>Поддомен — часть адреса: <code>https://company.amocrm.ru</code> → <code>company</code></li>
+            </ol>
+            <p style="margin-top: 12px;">Добавьте в <code>.env</code> или Render → Environment:</p>
+            <pre style="background: var(--bg-elevated); padding: 12px; border-radius: 8px; margin: 12px 0; overflow-x: auto;">CRM_PROVIDER=amocrm
+AMOCRM_SUBDOMAIN=company
+AMOCRM_ACCESS_TOKEN=ваш-токен
+AMOCRM_PIPELINE_ID=123456</pre>
+            <p style="font-size: 0.9rem; color: var(--text-muted);">AMOCRM_PIPELINE_ID — ID воронки (необязательно). Найти: Настройки → Воронки → в URL будет <code>/pipeline/123456</code></p>
+            <p style="margin-top: 12px;"><strong>Админ магазина:</strong> меню «CRM» → откроется воронка ScentForge (только «Новый заказ», без лишних этапов).</p>
+        </div>
 
-    <div class="setup-step">
-      <h3><span class="step-num">7</span> ИИ-помощник (опционально, бесплатно)</h3>
-      <p>Для полноценного ИИ с пониманием любых формулировок:</p>
-      <ul>
-        <li>Откройте <a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a></li>
-        <li>Нажмите <strong>Create API Key</strong></li>
-        <li>Добавьте в <code>.env</code>: <code>GEMINI_API_KEY=ваш-ключ</code></li>
-        <li>Перезапустите сервер</li>
-      </ul>
-      <p>Без ключа работает умный подбор по смыслу запроса.</p>
-    </div>
+        <div class="profile-card" style="margin-top: 24px;">
+            <h3>7 ИИ-помощник (опционально, бесплатно)</h3>
+            <p>Для полноценного ИИ с пониманием любых формулировок:</p>
+            <ol style="margin-left: 20px; margin-top: 12px;">
+                <li>Откройте <a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a></li>
+                <li>Нажмите Create API Key</li>
+                <li>Добавьте в <code>.env</code>: <code>GEMINI_API_KEY=ваш-ключ</code></li>
+                <li>Перезапустите сервер</li>
+            </ol>
+            <p style="margin-top: 12px;">Без ключа работает умный подбор по смыслу запроса.</p>
+        </div>
 
-    <div class="setup-step">
-      <h3><span class="step-num">7</span> Письма о заказах (SMTP)</h3>
-      <p>После заказа письмо приходит на <strong>Google-почту клиента</strong> (через которую он вошёл).</p>
-      <div id="email-status" class="status-box status-warn" style="margin-top:16px">Проверка почты...</div>
+        <div class="profile-card" style="margin-top: 24px;">
+            <h3>8 Письма о заказах (SMTP)</h3>
+            <p>После заказа письмо приходит на Google-почту клиента (через которую он вошёл).</p>
+            
+            <h4 style="margin-top: 20px;">Вариант А — Gmail (если доступны пароли приложений)</h4>
+            <ol style="margin-left: 20px;">
+                <li>Сначала включите <a href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank">двухэтапную аутентификацию</a></li>
+                <li>Затем создайте <a href="https://myaccount.google.com/apppasswords" target="_blank">пароль приложения</a></li>
+            </ol>
+            <p>Если пишет «настройка недоступна» — используйте вариант Б ниже.</p>
+            <pre style="background: var(--bg-elevated); padding: 12px; border-radius: 8px; margin: 12px 0; overflow-x: auto;">SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=ваш@gmail.com
+SMTP_PASS=пароль_приложения_16_символов</pre>
 
-      <p style="margin-top:20px"><strong>Вариант А — Gmail</strong> (если доступны пароли приложений)</p>
-      <ol style="margin:12px 0 0 20px;color:var(--text-muted);line-height:1.8">
-        <li>Сначала включите <a href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank">двухэтапную аутентификацию</a></li>
-        <li>Затем создайте <a href="https://myaccount.google.com/apppasswords" target="_blank">пароль приложения</a></li>
-      </ol>
-      <p style="margin-top:8px;color:var(--gold)">Если пишет «настройка недоступна» — используйте вариант Б ниже.</p>
-      <div class="code-block">SMTP_HOST=smtp.gmail.com<br>SMTP_PORT=587<br>SMTP_USER=ваш@gmail.com<br>SMTP_PASS=пароль_приложения_16_символов</div>
+            <h4 style="margin-top: 20px;">Вариант Б — Яндекс Почта (рекомендуется: письма реально приходят на Gmail)</h4>
+            <ol style="margin-left: 20px;">
+                <li>Создайте ящик на <a href="https://mail.yandex.ru" target="_blank">mail.yandex.ru</a> (или используйте существующий)</li>
+                <li><a href="https://id.yandex.ru/security" target="_blank">Безопасность</a> → включите двухфакторную аутентификацию</li>
+                <li>Там же → Пароли приложений → создайте для «Почта»</li>
+            </ol>
+            <pre style="background: var(--bg-elevated); padding: 12px; border-radius: 8px; margin: 12px 0; overflow-x: auto;">SMTP_HOST=smtp.yandex.ru
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=ваш@yandex.ru
+SMTP_PASS=пароль_приложения
+ADMIN_EMAIL=andronchik665@gmail.com</pre>
 
-      <p style="margin-top:20px"><strong>Вариант Б — Яндекс Почта</strong> (рекомендуется: письма реально приходят на Gmail)</p>
-      <ol style="margin:12px 0 0 20px;color:var(--text-muted);line-height:1.8">
-        <li>Создайте ящик на <a href="https://mail.yandex.ru" target="_blank">mail.yandex.ru</a> (или используйте существующий)</li>
-        <li><a href="https://id.yandex.ru/security" target="_blank">Безопасность</a> → включите двухфакторную аутентификацию</li>
-        <li>Там же → <strong>Пароли приложений</strong> → создайте для «Почта»</li>
-        <li>В <code>.env</code>:</li>
-      </ol>
-      <div class="code-block">SMTP_HOST=smtp.yandex.ru<br>SMTP_PORT=465<br>SMTP_SECURE=true<br>SMTP_USER=ваш@yandex.ru<br>SMTP_PASS=пароль_приложения<br>ADMIN_EMAIL=andronchik665@gmail.com</div>
+            <h4 style="margin-top: 20px;">Вариант В — Демо без регистрации</h4>
+            <p>Дважды щёлкните <code>setup-ethereal.bat</code> в папке проекта → перезапустите <code>start.bat</code>. После заказа ссылка на письмо появится в консоли сервера.</p>
+        </div>
 
-      <p style="margin-top:20px"><strong>Вариант В — Демо без регистрации</strong> (для показа проекта, не для реального Gmail)</p>
-      <p style="color:var(--text-muted)">Дважды щёлкните <strong>setup-ethereal.bat</strong> в папке проекта → перезапустите <code>start.bat</code>. После заказа ссылка на письмо появится в консоли сервера.</p>
+        <div style="margin-top: 32px; text-align: center;">
+            <a href="/auth/google" class="btn btn-google" style="max-width: 300px; margin: 0 auto 16px; display: inline-block;">
+                Войти через Google
+            </a>
+            <br>
+            <a href="index.html" class="btn btn-outline">Вернуться в каталог</a>
+        </div>
+    </main>
 
-      <p style="margin-top:20px"><strong>Вариант Г — Brevo</strong> (если получится зарегистрироваться)</p>
-      <div class="code-block">SMTP_HOST=smtp-relay.brevo.com<br>SMTP_PORT=587<br>SMTP_USER=email@example.com<br>SMTP_PASS=smtp-ключ</div>
+    <footer class="footer">
+        <div class="container">
+            <p>© 2026 ScentForge. Маркетплейс мужской парфюмерии.</p>
+        </div>
+    </footer>
 
-      <p style="margin-top:16px"><strong>Проверка:</strong> <strong>test-smtp.bat</strong> после настройки.</p>
-    </div>
-
-    <div style="margin-top:32px;display:flex;gap:12px;flex-wrap:wrap">
-      <a href="/auth/google" class="btn btn-primary" id="try-login" style="display:none">Войти через Google</a>
-      <a href="index.html" class="btn btn-outline">Вернуться в каталог</a>
-    </div>
-  </div>
-
-  <script>
-    async function checkStatus() {
-      const boxG = document.getElementById('auth-status-google');
-      const boxY = document.getElementById('auth-status-yandex');
-      const tryBtn = document.getElementById('try-login');
-      const emailBox = document.getElementById('email-status');
-
-      if (location.protocol === 'file:') {
-        boxG.className = 'status-box status-err';
-        boxG.textContent = 'Сервер не запущен';
-        boxY.className = 'status-box status-err';
-        boxY.textContent = 'Сервер не запущен';
-        if (emailBox) {
-          emailBox.className = 'status-box status-err';
-          emailBox.textContent = 'Сервер не запущен';
-        }
-        return;
-      }
-
-      try {
-        const [authRes, emailRes] = await Promise.all([
-          fetch('/api/auth/status'),
-          fetch('/api/email/status')
-        ]);
-        const data = await authRes.json();
-        const emailData = await emailRes.json();
-
-        document.getElementById('callback-url-google').textContent = data.google.callbackUrl;
-        document.getElementById('callback-url-yandex').textContent = data.yandex.callbackUrl;
-
-        if (data.google.configured) {
-          boxG.className = 'status-box status-ok';
-          boxG.textContent = '✓ Google OAuth подключён';
-        } else {
-          boxG.className = 'status-box status-warn';
-          boxG.textContent = 'Google OAuth не настроен';
-        }
-
-        if (data.yandex.configured) {
-          boxY.className = 'status-box status-ok';
-          boxY.textContent = '✓ Яндекс OAuth подключён';
-        } else {
-          boxY.className = 'status-box status-warn';
-          boxY.textContent = 'Яндекс OAuth не настроен';
-        }
-
-        if (emailBox) {
-          if (emailData.configured) {
-            emailBox.className = 'status-box status-ok';
-            emailBox.textContent = '✓ Почта настроена. Письма отправляются с ' + emailData.from;
-          } else {
-            emailBox.className = 'status-box status-warn';
-            emailBox.textContent = 'Почта не настроена — добавьте SMTP_PASS (пароль приложения) в .env';
-          }
-        }
-      } catch {
-        box.className = 'status-box status-err';
-        box.textContent = 'Сервер не отвечает. Запустите: npm start или start.bat';
-        if (emailBox) {
-          emailBox.className = 'status-box status-err';
-          emailBox.textContent = 'Сервер не отвечает';
-        }
-      }
-    }
-    checkStatus();
-  </script>
+    <script src="setup.js"></script>
 </body>
 </html>
