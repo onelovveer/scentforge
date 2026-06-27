@@ -66,9 +66,11 @@
   <div class="modal-overlay" id="auth-modal">
     <div class="modal">
       <h2>Войдите в аккаунт</h2>
-      <p>Для добавления в корзину и оформления заказа необходима авторизация через Google</p>
-      <a href="#" class="btn btn-google" data-auth-link>🔐 Войти через Google</a>
-      <br><br>
+      <p>Выберите удобный способ входа для оформления заказов</p>
+      <div style="display:flex; flex-direction:column; gap:12px; margin: 24px 0;">
+        <a href="/auth/google" class="btn btn-google" id="modal-google" style="display:none">🔐 Войти через Google</a>
+        <a href="/auth/yandex" class="btn btn-primary" id="modal-yandex" style="display:none; background:#ffcc00; color:#000; border:none">🔗 Войти через Яндекс</a>
+      </div>
       <button class="btn btn-ghost btn-sm" onclick="closeAuthModal()">Закрыть</button>
     </div>
   </div>

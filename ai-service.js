@@ -1,4 +1,4 @@
-const { perfumes } = require('./products');
+const { db } = require('./database');
 
 const GEMINI_MODELS = [
   'gemini-2.0-flash',
@@ -8,14 +8,17 @@ const GEMINI_MODELS = [
 
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
-const CATALOG_TEXT = perfumes.map(p => `
+function getCatalogText() {
+  const products = db.getAllProducts();
+  return products.map(p => `
 • ${p.brand} ${p.name} — ${p.price.toLocaleString('ru-RU')} ₽ (${p.volume})
   Ноты: ${p.notes}
   Описание: ${p.description}
-  Поводы: ${p.profile.occasions.join(', ')}
-  Характер: ${p.profile.vibes.join(', ')}
-  Сезон: ${p.profile.seasons.join(', ')}
+  Поводы: ${p.profile.occasions?.join(', ') || ''}
+  Характер: ${p.profile.vibes?.join(', ') || ''}
+  Сезон: ${p.profile.seasons?.join(', ') || ''}
 `).join('\n');
+}
 
 const PAYMENT_HINT = 'Оплата на ScentForge: войдите через Google → Профиль → пополните баланс → добавьте товар в корзину → «Оплатить с баланса». Подтверждение придёт на вашу Google-почту.';
 
@@ -153,7 +156,7 @@ function scorePerfume(perfume, dims, msg) {
 function rankPerfumes(message) {
   const msg = normalize(message);
   const dims = detectDimensions(msg);
-  return perfumes
+  return db.getAllProducts()
     .map(p => {
       const { score, reasons } = scorePerfume(p, dims, msg);
       return { perfume: p, score, reasons, dims };
@@ -226,11 +229,24 @@ function cleanReply(text) {
 function mentionsForeignProducts(reply) {
   const lower = reply.toLowerCase();
   const foreign = ['tom ford lost cherry', 'bleu de chanel eau de parfum intense', 'azzaro', 'hugo boss', 'calvin klein', 'paco rabanne', 'lacoste', 'montblanc', 'givenchy', 'hermes', 'burberry'];
-  const mentionsCatalog = perfumes.some(p =>
+  const mentionsCatalog = db.getAllProducts().some(p =>
     lower.includes(p.name.toLowerCase()) || lower.includes(p.brand.toLowerCase())
   );
   if (!mentionsCatalog && isRecommendationQuestion(lower)) return true;
   return foreign.some(f => lower.includes(f));
+}
+
+async function fetchWithTimeout(url, options, timeout = 8000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return res;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
 }
 
 async function callGemini(message, history, systemPrompt) {
@@ -247,7 +263,7 @@ async function callGemini(message, history, systemPrompt) {
 
   for (const model of GEMINI_MODELS) {
     try {
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
         {
           method: 'POST',
@@ -267,7 +283,7 @@ async function callGemini(message, history, systemPrompt) {
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) return { text: cleanReply(text), model };
     } catch (err) {
-      console.error(`[AI] Gemini ${model} network:`, err.message);
+      console.error(`[AI] Gemini ${model} error:`, err.name === 'AbortError' ? 'Timeout' : err.message);
     }
   }
   return null;
@@ -278,7 +294,7 @@ async function callGroq(message, history, systemPrompt) {
   if (!key) return null;
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const res = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
       body: JSON.stringify({
@@ -300,7 +316,7 @@ async function callGroq(message, history, systemPrompt) {
     const text = data.choices?.[0]?.message?.content;
     if (text) return { text: cleanReply(text), model: GROQ_MODEL };
   } catch (err) {
-    console.error('[AI] Groq network:', err.message);
+    console.error('[AI] Groq error:', err.name === 'AbortError' ? 'Timeout' : err.message);
   }
   return null;
 }
@@ -310,7 +326,7 @@ async function callOpenAI(message, history, systemPrompt) {
   if (!key) return null;
 
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
       body: JSON.stringify({
@@ -332,7 +348,7 @@ async function callOpenAI(message, history, systemPrompt) {
     const text = data.choices?.[0]?.message?.content;
     if (text) return { text: cleanReply(text), model: 'gpt-4o-mini' };
   } catch (err) {
-    console.error('[AI] OpenAI network:', err.message);
+    console.error('[AI] OpenAI error:', err.name === 'AbortError' ? 'Timeout' : err.message);
   }
   return null;
 }
@@ -382,6 +398,7 @@ function conversationalFallback(message, history) {
 }
 
 async function generateProductDescription(name, brand) {
+  console.log(`[AI] Generating description for: ${brand} ${name}`);
   const systemPrompt = `Ты — профессиональный копирайтер элитного парфюмерного магазина ScentForge.
 Твоя задача: написать одно лаконичное, привлекательное и экспертное предложение-описание для мужского парфюма.
 Описание должно подчеркивать статус, характер и уникальность аромата.
@@ -394,19 +411,37 @@ Dior Sauvage — это манифест свободы, воплощенный 
   const userPrompt = `Напиши описание для парфюма: ${brand} ${name}`;
 
   try {
+    const keyGemini = process.env.GEMINI_API_KEY;
+    const keyGroq = process.env.GROQ_API_KEY;
+    const keyOpenAI = process.env.OPENAI_API_KEY;
+
+    if (!keyGemini && !keyGroq && !keyOpenAI) {
+      console.warn('[AI] No API keys found for description generation, using fallback.');
+      return `${brand} ${name} — это утонченный выбор для современного мужчины, подчеркивающий его индивидуальность и стиль.`;
+    }
+
     // Try Gemini
     let result = await callGemini(userPrompt, [], systemPrompt);
-    if (result) return result.text;
+    if (result) {
+      console.log(`[AI] Generated via Gemini: ${result.model}`);
+      return result.text;
+    }
 
     // Try Groq
     result = await callGroq(userPrompt, [], systemPrompt);
-    if (result) return result.text;
+    if (result) {
+      console.log(`[AI] Generated via Groq: ${result.model}`);
+      return result.text;
+    }
 
     // Try OpenAI
     result = await callOpenAI(userPrompt, [], systemPrompt);
-    if (result) return result.text;
+    if (result) {
+      console.log(`[AI] Generated via OpenAI: ${result.model}`);
+      return result.text;
+    }
 
-    // Static fallback
+    console.warn('[AI] All AI providers failed, using fallback.');
     return `${brand} ${name} — это утонченный выбор для современного мужчины, подчеркивающий его индивидуальность и стиль.`;
   } catch (err) {
     console.error('[AI] Description generation error:', err.message);
@@ -422,7 +457,7 @@ async function getAIResponse(message, history = []) {
   }
 
   const hints = buildCatalogHints(message);
-  const systemPrompt = buildSystemPrompt(hints, history);
+  const systemPrompt = buildSystemPrompt(hints, history).replace('${CATALOG_TEXT}', getCatalogText());
 
   let result = await callGemini(message, history, systemPrompt);
   if (result && !mentionsForeignProducts(result.text)) {

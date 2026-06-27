@@ -184,12 +184,20 @@ async function generateDescription() {
       body: JSON.stringify({ name, brand })
     });
 
-    if (!res.ok) throw new Error('Ошибка ИИ');
+    if (res.status === 403) {
+      throw new Error('Доступ запрещен. Вы не администратор?');
+    }
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Ошибка сервера при генерации');
+    }
+
     const data = await res.json();
     document.getElementById('p-description').value = data.description;
     showToast('Описание сгенерировано', 'success');
   } catch (err) {
-    showToast('Не удалось сгенерировать описание', 'error');
+    console.error('[Admin] Generation error:', err);
+    showToast(err.message || 'Не удалось сгенерировать описание', 'error');
   } finally {
     btn.disabled = false;
     btn.innerText = '✨ Сгенерировать ИИ-описание';

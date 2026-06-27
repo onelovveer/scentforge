@@ -50,15 +50,20 @@ const db = {
     return load().users.find(u => u.google_id === googleId) || null;
   },
 
+  getUserByYandexId(yandexId) {
+    return load().users.find(u => u.yandex_id === yandexId) || null;
+  },
+
   getUserCount() {
     return load().users.length;
   },
 
-  createUser({ google_id, email, name, avatar, is_admin }) {
+  createUser({ google_id, yandex_id, email, name, avatar, is_admin }) {
     const data = load();
     const user = {
       id: data.nextId.users++,
-      google_id,
+      google_id: google_id || null,
+      yandex_id: yandex_id || null,
       email,
       name,
       avatar,
